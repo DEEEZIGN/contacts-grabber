@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+.nuxt/
+.output/
+.dist/
+.cache/
+.tmp/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Editor/OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
+*.local
+
+# Puppeteer/Chrome cache
+~/.cache/puppeteer/
+
+# Lockfiles (keep the one you use)
+package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+
