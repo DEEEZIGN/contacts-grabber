@@ -1,0 +1,55 @@
+@use 'sass:map';
+@use './_variables.scss' as *;
+
+html, body, #__nuxt {
+  height: 100%;
+}
+
+body {
+  background: $color-bg;
+  color: $color-text;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.container {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.card {
+  background: #fff;
+  border-radius: $radius-md;
+  box-shadow: $shadow-md;
+  padding: 20px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: $radius-sm;
+  cursor: pointer;
+  background: $color-primary;
+  color: #fff;
+}
+
+.btn.secondary { background: $color-secondary; }
+.btn.danger { background: $color-danger; }
+
+input[type="text"], textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: $radius-sm;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+}
+
+.row { display: flex; gap: 16px; }
+.grow { flex: 1; }
+
+
