@@ -86,6 +86,66 @@ export default defineEventHandler(async (event) => {
         }
         return Array.from(out)
     }
+
+    const cleanSocials = (socials: { platform: string; url: string }[]) => {
+        if (!socials) return [] as { platform: string; url: string }[]
+        const normalized: { platform: string; url: string }[] = []
+        const seen = new Set<string>()
+        const normUrl = (u: string) => {
+            try {
+                const url = new URL(u)
+                // VK: оставляем только основную страницу сообщества/профиля, отбрасываем wall/video/photo/events и параметры
+                if (url.hostname.endsWith('vk.com')) {
+                    const path = url.pathname.replace(/\/+$/, '')
+                    // запрещенные разделы/подресурсы
+                    if (/^\/(wall|video|photo|events|topic|album|app|market|artist|sticker|feed|write|share|audio|groups)/.test(path)) return null
+                    // допускаем только один сегмент (основная страница): /labnota, /club123, /public123
+                    const segs = path.split('/').filter(Boolean)
+                    if (segs.length !== 1) return null
+                    url.search = ''
+                    url.hash = ''
+                    return url.href
+                }
+                // Telegram: t.me/<handle>
+                if (/(^|\.)t\.me$|telegram\.me$/.test(url.hostname)) {
+                    const segs = url.pathname.split('/').filter(Boolean)
+                    if (!segs[0]) return null
+                    url.pathname = '/' + segs[0]
+                    url.search = ''
+                    url.hash = ''
+                    return url.href
+                }
+                // WhatsApp: wa.me/<digits> или api.whatsapp.com/send?phone=...
+                if (/(^|\.)wa\.me$|api\.whatsapp\.com$/.test(url.hostname)) {
+                    url.hash = ''
+                    return url.href
+                }
+                // Instagram/Facebook: чистим параметры
+                if (url.hostname.includes('instagram.com') || url.hostname.includes('facebook.com')) {
+                    url.search = ''
+                    url.hash = ''
+                    return url.href
+                }
+                return url.href
+            } catch { return null }
+        }
+        // Группируем по платформе, берём по 1 ссылке
+        for (const s of socials) {
+            if (!s?.url) continue
+            const normalizedUrl = normUrl(s.url)
+            if (!normalizedUrl) continue
+            const key = s.platform + '|' + normalizedUrl
+            if (seen.has(key)) continue
+            seen.add(key)
+            normalized.push({ platform: s.platform, url: normalizedUrl })
+        }
+        // Оставляем максимум по 1 на платформу (VK/Telegram/WhatsApp/Instagram/Facebook)
+        const perPlatform = new Map<string, { platform: string; url: string }>()
+        for (const s of normalized) {
+            if (!perPlatform.has(s.platform)) perPlatform.set(s.platform, s)
+        }
+        return Array.from(perPlatform.values())
+    }
     for (const link of relevant) {
         const itemLogs: string[] = []
         const ilog = (m: string) => {
@@ -109,7 +169,7 @@ export default defineEventHandler(async (event) => {
         const merged1 = {
             emails: Array.from(new Set([...(extraction1.emails || []), ...heur1.emails])),
             phones: cleanPhones([...(extraction1.phones || []), ...heur1.phones]),
-            socials: Array.from(socialPairs1.entries()).map(([url, platform]) => ({ url, platform })),
+            socials: cleanSocials(Array.from(socialPairs1.entries()).map(([url, platform]) => ({ url, platform }))),
             contactPageHints: extraction1.contactPageHints || [],
         }
         ilog(`Первичная выжимка: emails=${merged1.emails.length}, phones=${merged1.phones.length}, socials=${merged1.socials.length}`)
@@ -137,7 +197,7 @@ export default defineEventHandler(async (event) => {
         const merged2 = {
             emails: Array.from(new Set([...(extraction2.emails || []), ...heur2.emails])),
             phones: cleanPhones([...(extraction2.phones || []), ...heur2.phones]),
-            socials: Array.from(socialPairs2.entries()).map(([url, platform]) => ({ url, platform })),
+            socials: cleanSocials(Array.from(socialPairs2.entries()).map(([url, platform]) => ({ url, platform }))),
             contactPageHints: extraction2.contactPageHints || [],
         }
         ilog(`Повторная выжимка: emails=${merged2.emails.length}, phones=${merged2.phones.length}, socials=${merged2.socials.length}`)

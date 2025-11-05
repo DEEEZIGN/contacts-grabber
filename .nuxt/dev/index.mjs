@@ -1133,16 +1133,16 @@ const plugins = [
 const assets = {
   "/index.mjs": {
     "type": "text/javascript; charset=utf-8",
-    "etag": "\"17fe1-Hs8FuwEwii66f3F19XgtR6tNM/Y\"",
-    "mtime": "2025-11-05T14:42:09.487Z",
-    "size": 98273,
+    "etag": "\"1875e-TKOLUjpGePkSa1Ny7mNZaunr5ZE\"",
+    "mtime": "2025-11-05T14:48:27.794Z",
+    "size": 100190,
     "path": "index.mjs"
   },
   "/index.mjs.map": {
     "type": "application/json",
-    "etag": "\"5d499-9MxhO8cY0Qr4b11DH5Fw2hZYjHY\"",
-    "mtime": "2025-11-05T14:42:09.488Z",
-    "size": 382105,
+    "etag": "\"5f1f8-KCZDsXUqNKOsRY5eOy0NIBuMn8Y\"",
+    "mtime": "2025-11-05T14:48:27.794Z",
+    "size": 389624,
     "path": "index.mjs.map"
   }
 };
@@ -2010,6 +2010,59 @@ const search_post = defineEventHandler(async (event) => {
     }
     return Array.from(out);
   };
+  const cleanSocials = (socials) => {
+    if (!socials) return [];
+    const normalized = [];
+    const seen = /* @__PURE__ */ new Set();
+    const normUrl = (u) => {
+      try {
+        const url = new URL(u);
+        if (url.hostname.endsWith("vk.com")) {
+          const path = url.pathname.replace(/\/+$/, "");
+          if (/^\/(wall|video|photo|events|topic|album|app|market|artist|sticker|feed|write|share|audio|groups)/.test(path)) return null;
+          const segs = path.split("/").filter(Boolean);
+          if (segs.length !== 1) return null;
+          url.search = "";
+          url.hash = "";
+          return url.href;
+        }
+        if (/(^|\.)t\.me$|telegram\.me$/.test(url.hostname)) {
+          const segs = url.pathname.split("/").filter(Boolean);
+          if (!segs[0]) return null;
+          url.pathname = "/" + segs[0];
+          url.search = "";
+          url.hash = "";
+          return url.href;
+        }
+        if (/(^|\.)wa\.me$|api\.whatsapp\.com$/.test(url.hostname)) {
+          url.hash = "";
+          return url.href;
+        }
+        if (url.hostname.includes("instagram.com") || url.hostname.includes("facebook.com")) {
+          url.search = "";
+          url.hash = "";
+          return url.href;
+        }
+        return url.href;
+      } catch {
+        return null;
+      }
+    };
+    for (const s of socials) {
+      if (!(s == null ? void 0 : s.url)) continue;
+      const normalizedUrl = normUrl(s.url);
+      if (!normalizedUrl) continue;
+      const key = s.platform + "|" + normalizedUrl;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      normalized.push({ platform: s.platform, url: normalizedUrl });
+    }
+    const perPlatform = /* @__PURE__ */ new Map();
+    for (const s of normalized) {
+      if (!perPlatform.has(s.platform)) perPlatform.set(s.platform, s);
+    }
+    return Array.from(perPlatform.values());
+  };
   for (const link of relevant) {
     const itemLogs = [];
     const ilog = (m) => {
@@ -2033,7 +2086,7 @@ const search_post = defineEventHandler(async (event) => {
     const merged1 = {
       emails: Array.from(/* @__PURE__ */ new Set([...extraction1.emails || [], ...heur1.emails])),
       phones: cleanPhones([...extraction1.phones || [], ...heur1.phones]),
-      socials: Array.from(socialPairs1.entries()).map(([url, platform]) => ({ url, platform })),
+      socials: cleanSocials(Array.from(socialPairs1.entries()).map(([url, platform]) => ({ url, platform }))),
       contactPageHints: extraction1.contactPageHints || []
     };
     ilog(`\u041F\u0435\u0440\u0432\u0438\u0447\u043D\u0430\u044F \u0432\u044B\u0436\u0438\u043C\u043A\u0430: emails=${merged1.emails.length}, phones=${merged1.phones.length}, socials=${merged1.socials.length}`);
@@ -2059,7 +2112,7 @@ const search_post = defineEventHandler(async (event) => {
     const merged2 = {
       emails: Array.from(/* @__PURE__ */ new Set([...extraction2.emails || [], ...heur2.emails])),
       phones: cleanPhones([...extraction2.phones || [], ...heur2.phones]),
-      socials: Array.from(socialPairs2.entries()).map(([url, platform]) => ({ url, platform })),
+      socials: cleanSocials(Array.from(socialPairs2.entries()).map(([url, platform]) => ({ url, platform }))),
       contactPageHints: extraction2.contactPageHints || []
     };
     ilog(`\u041F\u043E\u0432\u0442\u043E\u0440\u043D\u0430\u044F \u0432\u044B\u0436\u0438\u043C\u043A\u0430: emails=${merged2.emails.length}, phones=${merged2.phones.length}, socials=${merged2.socials.length}`);
