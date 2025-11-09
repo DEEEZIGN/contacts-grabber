@@ -13,6 +13,8 @@ declare global {
   const callNodeListener: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').callNodeListener
   const clearResponseHeaders: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').clearResponseHeaders
   const clearSession: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').clearSession
+  const closePageSafe: typeof import('../../server/utils/scrape').closePageSafe
+  const closeSharedBrowser: typeof import('../../server/utils/scrape').closeSharedBrowser
   const createApp: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').createApp
   const createAppEventHandler: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').createAppEventHandler
   const createError: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').createError
@@ -44,7 +46,7 @@ declare global {
   const extractLinksFromSerpHtml: typeof import('../../server/utils/ai').extractLinksFromSerpHtml
   const fetchHistory: typeof import('../../server/utils/db').fetchHistory
   const fetchHistoryEntry: typeof import('../../server/utils/db').fetchHistoryEntry
-  const fetchHtml: typeof import('../../server/utils/scrape').fetchHtml
+  const fetchHtmlPage: typeof import('../../server/utils/scrape').fetchHtmlPage
   const fetchWithEvent: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').fetchWithEvent
   const fromNodeMiddleware: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').fromNodeMiddleware
   const fromPlainHandler: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').fromPlainHandler
@@ -72,10 +74,10 @@ declare global {
   const getRouterParam: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').getRouterParam
   const getRouterParams: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').getRouterParams
   const getSession: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').getSession
+  const getUploadsDir: typeof import('../../server/utils/templates').getUploadsDir
   const getValidatedQuery: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').getValidatedQuery
   const getValidatedRouterParams: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').getValidatedRouterParams
-  const googleSearch: typeof import('../../server/utils/scrape').googleSearch
-  const googleSearchHtml: typeof import('../../server/utils/scrape').googleSearchHtml
+  const googleSearchHtmlPages: typeof import('../../server/utils/scrape').googleSearchHtmlPages
   const handleCacheHeaders: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').handleCacheHeaders
   const handleCors: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').handleCors
   const heuristicExtractContacts: typeof import('../../server/utils/scrape').heuristicExtractContacts
@@ -88,7 +90,8 @@ declare global {
   const isStream: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').isStream
   const isWebResponse: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').isWebResponse
   const lazyEventHandler: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').lazyEventHandler
-  const navigateByHints: typeof import('../../server/utils/scrape').navigateByHints
+  const listTemplates: typeof import('../../server/utils/templates').listTemplates
+  const navigatePageByHints: typeof import('../../server/utils/scrape').navigatePageByHints
   const nitroPlugin: typeof import('../../node_modules/.pnpm/nitropack@2.12.9/node_modules/nitropack/dist/runtime/internal/plugin').nitroPlugin
   const parseCookies: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').parseCookies
   const promisifyNodeListener: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').promisifyNodeListener
@@ -102,6 +105,7 @@ declare global {
   const runTask: typeof import('../../node_modules/.pnpm/nitropack@2.12.9/node_modules/nitropack/dist/runtime/internal/task').runTask
   const sanitizeStatusCode: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').sanitizeStatusCode
   const sanitizeStatusMessage: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').sanitizeStatusMessage
+  const saveFileTemplate: typeof import('../../server/utils/templates').saveFileTemplate
   const saveSearchResult: typeof import('../../server/utils/db').saveSearchResult
   const sealSession: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').sealSession
   const selectLinksFromCandidates: typeof import('../../server/utils/ai').selectLinksFromCandidates
@@ -131,6 +135,7 @@ declare global {
   const toWebRequest: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').toWebRequest
   const unsealSession: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').unsealSession
   const updateSession: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').updateSession
+  const upsertTextTemplate: typeof import('../../server/utils/templates').upsertTextTemplate
   const useAppConfig: typeof import('../../node_modules/.pnpm/nitropack@2.12.9/node_modules/nitropack/dist/runtime/internal/config').useAppConfig
   const useBase: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').useBase
   const useEvent: typeof import('../../node_modules/.pnpm/nitropack@2.12.9/node_modules/nitropack/dist/runtime/internal/context').useEvent
@@ -149,8 +154,11 @@ declare global {
   export type { HistoryListItem, HistoryEntry } from '../../server/utils/db'
   import('../../server/utils/db')
   // @ts-ignore
-  export type { SearchResult } from '../../server/utils/scrape'
+  export type { SearchResult, SearchHtmlPage, BrowserLaunchConfig } from '../../server/utils/scrape'
   import('../../server/utils/scrape')
+  // @ts-ignore
+  export type { TextTemplate, FileTemplate } from '../../server/utils/templates'
+  import('../../server/utils/templates')
 }
 export { useNitroApp } from 'nitropack/runtime/internal/app';
 export { useRuntimeConfig, useAppConfig } from 'nitropack/runtime/internal/config';
@@ -168,4 +176,5 @@ export { buildAssetsURL as __buildAssetsURL, publicAssetsURL as __publicAssetsUR
 export { defineAppConfig } from '/Volumes/L/Misha/node_modules/.pnpm/nuxt@3.13.2_@types+node@22.8.6_eslint@9.14.0_sass@1.80.6_typescript@5.6.3_vite@7.2.0_vue-tsc@3.1.3/node_modules/nuxt/dist/core/runtime/nitro/config';
 export { selectRelevantLinks, extractContactsFromHtml, suggestNavigationForContacts, extractLinksFromSerpHtml, selectLinksFromCandidates } from '/Volumes/L/Misha/server/utils/ai';
 export { saveSearchResult, fetchHistory, fetchHistoryEntry } from '/Volumes/L/Misha/server/utils/db';
-export { stripHtmlAssets, extractAnchorCandidates, heuristicExtractContacts, googleSearch, googleSearchHtml, fetchHtml, navigateByHints } from '/Volumes/L/Misha/server/utils/scrape';
+export { closeSharedBrowser, googleSearchHtmlPages, fetchHtmlPage, navigatePageByHints, closePageSafe, stripHtmlAssets, extractAnchorCandidates, heuristicExtractContacts } from '/Volumes/L/Misha/server/utils/scrape';
+export { listTemplates, upsertTextTemplate, saveFileTemplate, getUploadsDir } from '/Volumes/L/Misha/server/utils/templates';

@@ -12,6 +12,16 @@ declare module "nitropack/types" {
     '/api/search': {
       'post': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/search.post').default>>>>
     }
+    '/api/send-offer': {
+      'post': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/send-offer.post').default>>>>
+    }
+    '/api/templates': {
+      'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/templates.get').default>>>>
+      'post': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/templates.post').default>>>>
+    }
+    '/api/templates/upload': {
+      'post': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/templates/upload.post').default>>>>
+    }
     '/__nuxt_error': {
       'default': Simplify<Serialize<Awaited<ReturnType<typeof import('../../node_modules/.pnpm/nuxt@3.13.2_@types+node@22.8.6_eslint@9.14.0_sass@1.80.6_typescript@5.6.3_vite@7.2.0_vue-tsc@3.1.3/node_modules/nuxt/dist/core/runtime/nitro/renderer').default>>>>
     }

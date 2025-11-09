@@ -1,12 +1,13 @@
 import process from 'node:process';globalThis._importMeta_={url:import.meta.url,env:process.env};import { tmpdir } from 'node:os';
-import { defineEventHandler, handleCacheHeaders, splitCookiesString, createEvent, fetchWithEvent, isEvent, eventHandler, setHeaders, sendRedirect, proxyRequest, getRequestHeader, setResponseStatus, setResponseHeader, send, getRequestHeaders, getRequestURL, getResponseHeader, setResponseHeaders, appendResponseHeader, removeResponseHeader, createError, createApp, createRouter as createRouter$1, toNodeListener, lazyEventHandler, getResponseStatus, getRouterParam, readBody, getQuery as getQuery$1, getResponseStatusText } from 'file:///Volumes/L/Misha/node_modules/.pnpm/h3@1.15.4/node_modules/h3/dist/index.mjs';
+import { defineEventHandler, handleCacheHeaders, splitCookiesString, createEvent, fetchWithEvent, isEvent, eventHandler, setHeaders, sendRedirect, proxyRequest, getRequestHeader, setResponseStatus, setResponseHeader, send, getRequestHeaders, getRequestURL, getResponseHeader, setResponseHeaders, appendResponseHeader, removeResponseHeader, createError, createApp, createRouter as createRouter$1, toNodeListener, lazyEventHandler, getResponseStatus, getRouterParam, readBody, getQuery as getQuery$1, readMultipartFormData, getResponseStatusText } from 'file:///Volumes/L/Misha/node_modules/.pnpm/h3@1.15.4/node_modules/h3/dist/index.mjs';
 import { Server } from 'node:http';
 import { resolve, dirname, join } from 'node:path';
-import nodeCrypto from 'node:crypto';
+import nodeCrypto, { randomUUID } from 'node:crypto';
 import { parentPort, threadId } from 'node:worker_threads';
 import { promises, existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import puppeteer from 'file:///Volumes/L/Misha/node_modules/.pnpm/puppeteer@24.24.0_typescript@5.6.3/node_modules/puppeteer/lib/esm/puppeteer/puppeteer.js';
 import OpenAI from 'file:///Volumes/L/Misha/node_modules/.pnpm/openai@4.67.1/node_modules/openai/index.mjs';
+import nodemailer from 'file:///Volumes/L/Misha/node_modules/.pnpm/nodemailer@6.9.15/node_modules/nodemailer/lib/nodemailer.js';
 import { getRequestDependencies, getPreloadLinks, getPrefetchLinks, createRenderer } from 'file:///Volumes/L/Misha/node_modules/.pnpm/vue-bundle-renderer@2.2.0/node_modules/vue-bundle-renderer/dist/runtime.mjs';
 import { stringify, uneval } from 'file:///Volumes/L/Misha/node_modules/.pnpm/devalue@5.4.2/node_modules/devalue/index.js';
 import destr from 'file:///Volumes/L/Misha/node_modules/.pnpm/destr@2.0.5/node_modules/destr/dist/index.mjs';
@@ -1130,22 +1131,7 @@ const plugins = [
   _QWNF8eIQpiTtHqsf0RYCV8pPYckwhIwlL5RYC2TJ_Y
 ];
 
-const assets = {
-  "/index.mjs": {
-    "type": "text/javascript; charset=utf-8",
-    "etag": "\"19885-/oOKlM5YecXrCjM5qUKGvsh84I0\"",
-    "mtime": "2025-11-09T20:00:22.340Z",
-    "size": 104581,
-    "path": "index.mjs"
-  },
-  "/index.mjs.map": {
-    "type": "application/json",
-    "etag": "\"6290f-8L7oU08nJk83W/l8UQPLozPlxLA\"",
-    "mtime": "2025-11-09T20:00:22.340Z",
-    "size": 403727,
-    "path": "index.mjs.map"
-  }
-};
+const assets = {};
 
 function readAsset (id) {
   const serverDir = dirname$1(fileURLToPath(globalThis._importMeta_.url));
@@ -1237,6 +1223,10 @@ const _FNHlDH = eventHandler((event) => {
 const _lazy_77pPbs = () => Promise.resolve().then(function () { return history_get$1; });
 const _lazy_Fnr07D = () => Promise.resolve().then(function () { return _id__get$1; });
 const _lazy_AFVAmM = () => Promise.resolve().then(function () { return search_post$1; });
+const _lazy_HOWorg = () => Promise.resolve().then(function () { return sendOffer_post$1; });
+const _lazy_6BDBGm = () => Promise.resolve().then(function () { return templates_get$1; });
+const _lazy_mOkQr3 = () => Promise.resolve().then(function () { return templates_post$1; });
+const _lazy_3KUQoR = () => Promise.resolve().then(function () { return upload_post$1; });
 const _lazy_gspZnU = () => Promise.resolve().then(function () { return renderer$1; });
 
 const handlers = [
@@ -1244,6 +1234,10 @@ const handlers = [
   { route: '/api/history', handler: _lazy_77pPbs, lazy: true, middleware: false, method: "get" },
   { route: '/api/history/:id', handler: _lazy_Fnr07D, lazy: true, middleware: false, method: "get" },
   { route: '/api/search', handler: _lazy_AFVAmM, lazy: true, middleware: false, method: "post" },
+  { route: '/api/send-offer', handler: _lazy_HOWorg, lazy: true, middleware: false, method: "post" },
+  { route: '/api/templates', handler: _lazy_6BDBGm, lazy: true, middleware: false, method: "get" },
+  { route: '/api/templates', handler: _lazy_mOkQr3, lazy: true, middleware: false, method: "post" },
+  { route: '/api/templates/upload', handler: _lazy_3KUQoR, lazy: true, middleware: false, method: "post" },
   { route: '/__nuxt_error', handler: _lazy_gspZnU, lazy: true, middleware: false, method: undefined },
   { route: '/**', handler: _lazy_gspZnU, lazy: true, middleware: false, method: undefined }
 ];
@@ -1562,11 +1556,11 @@ const errorDev = /*#__PURE__*/Object.freeze({
   template: template$1
 });
 
-const dataDir = join(process.cwd(), "data");
-const historyPath = join(dataDir, "history.json");
-function ensureStore() {
-  if (!existsSync(dataDir)) {
-    mkdirSync(dataDir, { recursive: true });
+const dataDir$1 = join(process.cwd(), "data");
+const historyPath = join(dataDir$1, "history.json");
+function ensureStore$1() {
+  if (!existsSync(dataDir$1)) {
+    mkdirSync(dataDir$1, { recursive: true });
   }
   if (!existsSync(historyPath)) {
     const initial = { lastId: 0, items: [] };
@@ -1591,7 +1585,7 @@ function persistStore(store) {
   writeFileSync(historyPath, JSON.stringify(store, null, 2), "utf-8");
 }
 function saveSearchResult(query, payload) {
-  const store = ensureStore();
+  const store = ensureStore$1();
   const id = store.lastId + 1;
   const createdAt = (/* @__PURE__ */ new Date()).toISOString();
   const entry = {
@@ -1610,7 +1604,7 @@ function saveSearchResult(query, payload) {
   return id;
 }
 function fetchHistory(limit = 30) {
-  const store = ensureStore();
+  const store = ensureStore$1();
   return store.items.slice(0, limit).map((entry) => ({
     id: entry.id,
     query: entry.query,
@@ -1619,7 +1613,7 @@ function fetchHistory(limit = 30) {
 }
 function fetchHistoryEntry(id) {
   var _a;
-  const store = ensureStore();
+  const store = ensureStore$1();
   return (_a = store.items.find((entry) => entry.id === id)) != null ? _a : null;
 }
 
@@ -2267,6 +2261,186 @@ const search_post = defineEventHandler(async (event) => {
 const search_post$1 = /*#__PURE__*/Object.freeze({
   __proto__: null,
   default: search_post
+});
+
+const dataDir = join(process.cwd(), "data");
+const uploadsDir = join(dataDir, "uploads");
+const storePath = join(dataDir, "templates.json");
+function ensureStore() {
+  if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
+  if (!existsSync(uploadsDir)) mkdirSync(uploadsDir, { recursive: true });
+  if (!existsSync(storePath)) {
+    const initial = { textTemplates: [], fileTemplates: [] };
+    writeFileSync(storePath, JSON.stringify(initial, null, 2), "utf-8");
+    return initial;
+  }
+  try {
+    const raw = readFileSync(storePath, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (!parsed.textTemplates || !parsed.fileTemplates) throw new Error("invalid");
+    return parsed;
+  } catch {
+    const reset = { textTemplates: [], fileTemplates: [] };
+    writeFileSync(storePath, JSON.stringify(reset, null, 2), "utf-8");
+    return reset;
+  }
+}
+function persist(store) {
+  writeFileSync(storePath, JSON.stringify(store, null, 2), "utf-8");
+}
+function listTemplates() {
+  return ensureStore();
+}
+function upsertTextTemplate(input) {
+  const store = ensureStore();
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const existingIdx = store.textTemplates.findIndex((t) => t.id === input.id);
+  const tpl = { ...input, updatedAt: now };
+  if (existingIdx >= 0) {
+    store.textTemplates[existingIdx] = tpl;
+  } else {
+    store.textTemplates.push(tpl);
+  }
+  persist(store);
+  return tpl;
+}
+function saveFileTemplate(meta) {
+  const store = ensureStore();
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const existingIdx = store.fileTemplates.findIndex((t) => t.id === meta.id);
+  const tpl = { ...meta, updatedAt: now };
+  if (existingIdx >= 0) {
+    store.fileTemplates[existingIdx] = tpl;
+  } else {
+    store.fileTemplates.push(tpl);
+  }
+  persist(store);
+  return tpl;
+}
+function getUploadsDir() {
+  ensureStore();
+  return uploadsDir;
+}
+
+const sendOffer_post = defineEventHandler(async (event) => {
+  var _a;
+  const body = await readBody(event);
+  if (!((_a = body == null ? void 0 : body.emails) == null ? void 0 : _a.length)) {
+    throw createError({ statusCode: 400, statusMessage: "emails required" });
+  }
+  if (body.mode !== "text" && body.mode !== "file") {
+    throw createError({ statusCode: 400, statusMessage: "invalid mode" });
+  }
+  const cfg = useRuntimeConfig();
+  const host = cfg.SMTP_HOST;
+  const port = Number(cfg.SMTP_PORT || 587);
+  const user = cfg.SMTP_USER;
+  const pass = cfg.SMTP_PASS;
+  const secure = String(cfg.SMTP_SECURE || "false").toLowerCase() === "true";
+  const from = cfg.SMTP_FROM || user;
+  if (!host || !user || !pass) {
+    throw createError({ statusCode: 400, statusMessage: "SMTP config missing (SMTP_HOST, SMTP_USER, SMTP_PASS)" });
+  }
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass }
+  });
+  const subject = body.subject || "\u041A\u043E\u043C\u043C\u0435\u0440\u0447\u0435\u0441\u043A\u043E\u0435 \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0435";
+  const { textTemplates, fileTemplates } = listTemplates();
+  const attachments = [];
+  let html = "";
+  if (body.mode === "text") {
+    const tpl = textTemplates.find((t) => t.id === body.textTemplateId);
+    html = body.body || (tpl == null ? void 0 : tpl.body) || "";
+  } else {
+    const tpl = fileTemplates.find((t) => t.id === body.fileTemplateId);
+    if (!tpl) {
+      throw createError({ statusCode: 400, statusMessage: "fileTemplateId not found" });
+    }
+    const uploadsDir = join(process.cwd(), "data", "uploads");
+    attachments.push({
+      filename: tpl.originalName,
+      path: join(uploadsDir, tpl.filename),
+      contentType: tpl.mime
+    });
+    html = body.body || "";
+  }
+  const info = await transporter.sendMail({
+    from,
+    to: body.emails.join(","),
+    subject,
+    html,
+    attachments
+  });
+  return { ok: true, messageId: info.messageId };
+});
+
+const sendOffer_post$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: sendOffer_post
+});
+
+const templates_get = defineEventHandler(() => {
+  return listTemplates();
+});
+
+const templates_get$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: templates_get
+});
+
+const templates_post = defineEventHandler(async (event) => {
+  const body = await readBody(event);
+  if (!(body == null ? void 0 : body.id) || !(body == null ? void 0 : body.name)) {
+    throw createError({ statusCode: 400, statusMessage: "id and name are required" });
+  }
+  const saved = upsertTextTemplate({
+    id: body.id,
+    name: body.name,
+    subject: body.subject || "",
+    body: body.body || ""
+  });
+  return saved;
+});
+
+const templates_post$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: templates_post
+});
+
+const upload_post = defineEventHandler(async (event) => {
+  var _a, _b;
+  const form = await readMultipartFormData(event);
+  if (!form) {
+    throw createError({ statusCode: 400, statusMessage: "multipart form-data required" });
+  }
+  const file = form.find((f) => f.type === "file");
+  const nameField = form.find((f) => f.name === "name" && f.type === "text");
+  const idField = form.find((f) => f.name === "id" && f.type === "text");
+  if (!file || !file.filename || !file.data) {
+    throw createError({ statusCode: 400, statusMessage: "file is required" });
+  }
+  const id = ((_a = idField == null ? void 0 : idField.data) == null ? void 0 : _a.toString("utf-8")) || randomUUID();
+  const name = ((_b = nameField == null ? void 0 : nameField.data) == null ? void 0 : _b.toString("utf-8")) || file.filename;
+  const uploads = getUploadsDir();
+  const storedName = `${id}-${Date.now()}-${file.filename}`;
+  const target = join(uploads, storedName);
+  writeFileSync(target, file.data);
+  const saved = saveFileTemplate({
+    id,
+    name,
+    filename: storedName,
+    originalName: file.filename,
+    mime: file.type || "application/octet-stream"
+  });
+  return saved;
+});
+
+const upload_post$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: upload_post
 });
 
 const Vue3 = version[0] === "3";

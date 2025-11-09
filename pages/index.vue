@@ -54,7 +54,7 @@
 
                         <n-card v-if="results.length" :title="`Результаты (${results.length})`">
                             <n-space vertical size="large">
-                                <n-card v-for="(r, idx) in results" :key="idx" bordered>
+                                <n-card v-for="(r, idx) in results" :key="idx" bordered class="result-card">
                                     <n-space vertical size="small">
                                         <n-text strong>{{ r.link.title }}</n-text>
                                         <n-a :href="r.page" target="_blank">{{ r.page }}</n-a>
@@ -100,6 +100,15 @@
                                         </n-grid-item>
                                     </n-grid>
 
+                                    <n-divider />
+                                    <div class="card-actions">
+                                        <n-space :size="8" wrap>
+                                            <n-button tertiary type="primary" @click="openSendOffer(r)">Отправить
+                                                КП</n-button>
+                                            <n-button tertiary @click="openTemplates">Шаблоны КП</n-button>
+                                        </n-space>
+                                    </div>
+
                                     <n-text v-if="r.hintsTried?.length" depth="3" class="hints-label">
                                         Навигация пробована: {{ r.hintsTried.join(' | ') }}
                                     </n-text>
@@ -119,6 +128,90 @@
             </n-spin>
         </n-layout-content>
     </n-layout>
+
+    <n-modal v-model:show="sendOfferVisible" preset="card" title="Отправка КП" class="modal-wide">
+        <n-form label-placement="top">
+            <n-form-item label="Получатели (email)">
+                <n-select v-model:value="sendForm.emails" multiple :options="recipientOptions" filterable
+                    placeholder="email@domain.ru" />
+            </n-form-item>
+            <n-form-item label="Тема">
+                <n-input v-model:value="sendForm.subject" placeholder="Коммерческое предложение" />
+            </n-form-item>
+            <n-form-item label="Режим">
+                <n-select v-model:value="sendForm.mode" :options="modeOptions" />
+            </n-form-item>
+            <n-form-item v-if="sendForm.mode === 'text'" label="Шаблон (текст)">
+                <n-select v-model:value="sendForm.textTemplateId" :options="textTemplateOptions"
+                    placeholder="Выберите шаблон" />
+            </n-form-item>
+            <n-form-item v-if="sendForm.mode === 'text'" label="Текст письма">
+                <n-input v-model:value="sendForm.body" type="textarea" :rows="8" placeholder="Текст КП" />
+            </n-form-item>
+            <n-form-item v-if="sendForm.mode === 'file'" label="Шаблон (файл)">
+                <n-select v-model:value="sendForm.fileTemplateId" :options="fileTemplateOptions"
+                    placeholder="Выберите файл-шаблон" />
+            </n-form-item>
+        </n-form>
+        <template #footer>
+            <n-space justify="end">
+                <n-button quaternary @click="sendOfferVisible = false">Отмена</n-button>
+                <n-button type="primary" :loading="sending" @click="sendOffer">Отправить</n-button>
+            </n-space>
+        </template>
+    </n-modal>
+
+    <n-modal v-model:show="templatesVisible" preset="card" title="Шаблоны КП" class="modal-wide">
+        <n-space vertical :size="16">
+            <n-tabs type="line" animated>
+                <n-tab-pane name="text" tab="Текстовые шаблоны">
+                    <n-form label-placement="top">
+                        <n-form-item label="Название">
+                            <n-input v-model:value="editTextTpl.name" placeholder="Общий шаблон" />
+                        </n-form-item>
+                        <n-form-item label="Тема">
+                            <n-input v-model:value="editTextTpl.subject" placeholder="Коммерческое предложение" />
+                        </n-form-item>
+                        <n-form-item label="Текст письма">
+                            <n-input v-model:value="editTextTpl.body" type="textarea" :rows="10"
+                                placeholder="Текст письма" />
+                        </n-form-item>
+                        <n-space justify="end">
+                            <n-button type="primary" :loading="savingTemplates"
+                                @click="saveTextTemplate">Сохранить</n-button>
+                        </n-space>
+                    </n-form>
+                </n-tab-pane>
+                <n-tab-pane name="file" tab="Файл-шаблон (приложение)">
+                    <n-form label-placement="top">
+                        <n-form-item label="Название">
+                            <n-input v-model:value="editFileTpl.name" placeholder="Общий файл КП" />
+                        </n-form-item>
+                        <n-form-item label="Загрузка файла">
+                            <n-upload :default-upload="false" @change="onFilePicked">
+                                <n-button>Выбрать файл</n-button>
+                            </n-upload>
+                        </n-form-item>
+                        <n-space justify="end">
+                            <n-button type="primary" :loading="uploading"
+                                @click="uploadFileTemplate">Загрузить</n-button>
+                        </n-space>
+                        <n-divider />
+                        <n-text depth="3">Доступные файлы:</n-text>
+                        <n-space vertical size="small">
+                            <n-tag v-for="f in templates.fileTemplates" :key="f.id" type="info">{{ f.name }} ({{
+                                f.originalName }})</n-tag>
+                        </n-space>
+                    </n-form>
+                </n-tab-pane>
+            </n-tabs>
+        </n-space>
+        <template #footer>
+            <n-space justify="end">
+                <n-button type="primary" @click="templatesVisible = false">Готово</n-button>
+            </n-space>
+        </template>
+    </n-modal>
 </template>
 
 <script setup lang="ts">
@@ -153,6 +246,11 @@ type HistoryItem = {
     createdAt: string
 }
 
+type TemplatesStore = {
+    textTemplates: { id: string; name: string; subject: string; body: string }[]
+    fileTemplates: { id: string; name: string; filename: string; originalName: string; mime: string }[]
+}
+
 const query = ref('Музыкальные студии Тюмень')
 const loading = ref(false)
 const error = ref('')
@@ -165,6 +263,124 @@ const historyLoading = ref(false)
 const restoringHistory = ref(false)
 const showLogs = ref(false)
 
+const sendOfferVisible = ref(false)
+const templatesVisible = ref(false)
+const sending = ref(false)
+const savingTemplates = ref(false)
+const uploading = ref(false)
+const templates = ref<TemplatesStore>({ textTemplates: [], fileTemplates: [] })
+const recipientOptions = ref<{ label: string; value: string }[]>([])
+const modeOptions = [
+    { label: 'Текст письма', value: 'text' },
+    { label: 'Файл-вложение', value: 'file' },
+]
+const textTemplateOptions = computed(() => templates.value.textTemplates.map(t => ({ label: t.name, value: t.id })))
+const fileTemplateOptions = computed(() => templates.value.fileTemplates.map(t => ({ label: `${t.name} (${t.originalName})`, value: t.id })))
+
+const sendForm = reactive({
+    emails: [] as string[],
+    subject: 'Коммерческое предложение',
+    mode: 'text' as 'text' | 'file',
+    textTemplateId: '',
+    fileTemplateId: '',
+    body: '',
+})
+
+const editTextTpl = reactive({
+    id: 'general-text',
+    name: 'Общий шаблон',
+    subject: 'Коммерческое предложение',
+    body: '',
+})
+
+const editFileTpl = reactive({
+    id: 'general-file',
+    name: 'Общий файл КП',
+    file: null as File | null,
+})
+
+const loadTemplates = async () => {
+    const data = await $fetch('/api/templates')
+    templates.value = data as TemplatesStore
+}
+
+const openTemplates = async () => {
+    await loadTemplates()
+    const t = templates.value.textTemplates.find(t => t.id === editTextTpl.id)
+    if (t) {
+        editTextTpl.name = t.name
+        editTextTpl.subject = t.subject
+        editTextTpl.body = t.body
+    }
+    templatesVisible.value = true
+}
+
+const onFilePicked = (options: any) => {
+    const file = options?.file?.file as File | undefined
+    editFileTpl.file = file || null
+}
+
+const uploadFileTemplate = async () => {
+    if (!editFileTpl.file) return
+    uploading.value = true
+    try {
+        const form = new FormData()
+        form.append('id', editFileTpl.id)
+        form.append('name', editFileTpl.name)
+        form.append('file', editFileTpl.file)
+        await $fetch('/api/templates/upload', { method: 'POST', body: form })
+        await loadTemplates()
+    } finally {
+        uploading.value = false
+    }
+}
+
+const saveTextTemplate = async () => {
+    savingTemplates.value = true
+    try {
+        await $fetch('/api/templates', { method: 'POST', body: editTextTpl })
+        await loadTemplates()
+    } finally {
+        savingTemplates.value = false
+    }
+}
+
+const openSendOffer = async (item: SearchResultItem) => {
+    await loadTemplates()
+    const emails = (item.contacts.emails || []).filter(Boolean)
+    recipientOptions.value = emails.map(e => ({ label: e, value: e }))
+    sendForm.emails = emails.slice(0, 3)
+    const txt = templates.value.textTemplates.find(t => t.id === editTextTpl.id)
+    sendForm.textTemplateId = txt ? txt.id : (templates.value.textTemplates[0]?.id || '')
+    sendForm.fileTemplateId = templates.value.fileTemplates[0]?.id || ''
+    sendForm.subject = 'Коммерческое предложение'
+    sendForm.body = txt?.body || ''
+    sendForm.mode = 'text'
+    sendOfferVisible.value = true
+}
+
+const sendOffer = async () => {
+    if (!sendForm.emails.length) {
+        return
+    }
+    sending.value = true
+    try {
+        await $fetch('/api/send-offer', {
+            method: 'POST',
+            body: {
+                emails: sendForm.emails,
+                subject: sendForm.subject,
+                mode: sendForm.mode,
+                textTemplateId: sendForm.mode === 'text' ? sendForm.textTemplateId : undefined,
+                body: sendForm.mode === 'text' ? sendForm.body : undefined,
+                fileTemplateId: sendForm.mode === 'file' ? sendForm.fileTemplateId : undefined,
+            },
+        })
+        sendOfferVisible.value = false
+    } finally {
+        sending.value = false
+    }
+}
 const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
     dateStyle: 'short',
     timeStyle: 'short',
@@ -324,6 +540,15 @@ onMounted(async () => {
         margin-top: 12px;
     }
 
+    .result-card :deep(.n-card__content) {
+        padding-bottom: 8px;
+    }
+
+    .card-actions {
+        display: flex;
+        justify-content: flex-end;
+    }
+
     .sidebar {
         border-right: 1px solid rgba(224, 224, 230, 0.6);
         background: #f7f8fa;
@@ -390,5 +615,10 @@ onMounted(async () => {
     .hints-label {
         display: block;
         margin-top: 8px;
+    }
+
+    .modal-wide {
+        width: 720px;
+        max-width: 95vw;
     }
 </style>
