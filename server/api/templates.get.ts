@@ -1,7 +1,7 @@
 import { listTemplates } from '@/server/utils/templates'
 
 export default defineEventHandler(() => {
-    return listTemplates()
+    return { templates: listTemplates() }
 })
 
 

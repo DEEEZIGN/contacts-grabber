@@ -1,12 +1,11 @@
 {
-  "textTemplates": [
+  "templates": [
     {
-      "id": "general-text",
-      "name": "3r23344343433434",
-      "subject": "gdfgdfgdggdfgd",
-      "body": "sdfdfsdfggdfgdfgdf",
-      "updatedAt": "2025-11-09T20:22:49.074Z"
+      "id": "123fd",
+      "name": "feg34v34rf",
+      "subject": "34gbterfg",
+      "body": "efdgerrg34gverg3g",
+      "updatedAt": "2025-11-09T20:35:05.908Z"
     }
-  ],
-  "fileTemplates": []
+  ]
 }

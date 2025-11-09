@@ -39,6 +39,7 @@ declare global {
   const defineWebSocket: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').defineWebSocket
   const defineWebSocketHandler: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').defineWebSocketHandler
   const deleteCookie: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').deleteCookie
+  const deleteTemplate: typeof import('../../server/utils/templates').deleteTemplate
   const dynamicEventHandler: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').dynamicEventHandler
   const eventHandler: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').eventHandler
   const extractAnchorCandidates: typeof import('../../server/utils/scrape').extractAnchorCandidates
@@ -105,7 +106,6 @@ declare global {
   const runTask: typeof import('../../node_modules/.pnpm/nitropack@2.12.9/node_modules/nitropack/dist/runtime/internal/task').runTask
   const sanitizeStatusCode: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').sanitizeStatusCode
   const sanitizeStatusMessage: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').sanitizeStatusMessage
-  const saveFileTemplate: typeof import('../../server/utils/templates').saveFileTemplate
   const saveSearchResult: typeof import('../../server/utils/db').saveSearchResult
   const sealSession: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').sealSession
   const selectLinksFromCandidates: typeof import('../../server/utils/ai').selectLinksFromCandidates
@@ -125,6 +125,7 @@ declare global {
   const setResponseHeader: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').setResponseHeader
   const setResponseHeaders: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').setResponseHeaders
   const setResponseStatus: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').setResponseStatus
+  const setTemplateFile: typeof import('../../server/utils/templates').setTemplateFile
   const splitCookiesString: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').splitCookiesString
   const stripHtmlAssets: typeof import('../../server/utils/scrape').stripHtmlAssets
   const suggestNavigationForContacts: typeof import('../../server/utils/ai').suggestNavigationForContacts
@@ -135,7 +136,7 @@ declare global {
   const toWebRequest: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').toWebRequest
   const unsealSession: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').unsealSession
   const updateSession: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').updateSession
-  const upsertTextTemplate: typeof import('../../server/utils/templates').upsertTextTemplate
+  const upsertTemplate: typeof import('../../server/utils/templates').upsertTemplate
   const useAppConfig: typeof import('../../node_modules/.pnpm/nitropack@2.12.9/node_modules/nitropack/dist/runtime/internal/config').useAppConfig
   const useBase: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').useBase
   const useEvent: typeof import('../../node_modules/.pnpm/nitropack@2.12.9/node_modules/nitropack/dist/runtime/internal/context').useEvent
@@ -157,7 +158,7 @@ declare global {
   export type { SearchResult, SearchHtmlPage, BrowserLaunchConfig } from '../../server/utils/scrape'
   import('../../server/utils/scrape')
   // @ts-ignore
-  export type { TextTemplate, FileTemplate } from '../../server/utils/templates'
+  export type { OfferTemplate } from '../../server/utils/templates'
   import('../../server/utils/templates')
 }
 export { useNitroApp } from 'nitropack/runtime/internal/app';
@@ -177,4 +178,4 @@ export { defineAppConfig } from '/Volumes/L/Misha/node_modules/.pnpm/nuxt@3.13.2
 export { selectRelevantLinks, extractContactsFromHtml, suggestNavigationForContacts, extractLinksFromSerpHtml, selectLinksFromCandidates } from '/Volumes/L/Misha/server/utils/ai';
 export { saveSearchResult, fetchHistory, fetchHistoryEntry } from '/Volumes/L/Misha/server/utils/db';
 export { closeSharedBrowser, googleSearchHtmlPages, fetchHtmlPage, navigatePageByHints, closePageSafe, stripHtmlAssets, extractAnchorCandidates, heuristicExtractContacts } from '/Volumes/L/Misha/server/utils/scrape';
-export { listTemplates, upsertTextTemplate, saveFileTemplate, getUploadsDir } from '/Volumes/L/Misha/server/utils/templates';
+export { listTemplates, upsertTemplate, deleteTemplate, setTemplateFile, getUploadsDir } from '/Volumes/L/Misha/server/utils/templates';

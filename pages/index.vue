@@ -1,136 +1,153 @@
 <template>
     <n-layout has-sider class="page-layout">
         <n-layout-sider class="sidebar" :native-scrollbar="false">
-            <div class="sidebar-header">История запросов</div>
-            <n-spin :show="historyLoading">
-                <div class="history-wrapper">
-                    <n-scrollbar class="history-scroll">
-                        <template v-if="historyItems.length">
-                            <div class="history-list">
-                                <n-button v-for="item in historyItems" :key="item.id" quaternary block
-                                    class="history-item"
-                                    :class="{ 'history-item_active': item.id === historySelectedId }"
-                                    @click="handleHistorySelect(item.id)">
-                                    <div class="history-item__content">
-                                        <div class="history-item__title">{{ item.query }}</div>
-                                        <div class="history-item__date">{{ formatHistoryDate(item.createdAt) }}</div>
-                                    </div>
+            <div class="sidebar-header">Меню</div>
+            <div class="sidebar-actions">
+                <n-space vertical :size="8">
+                    <n-button size="small" type="primary" quaternary disabled>Поиск</n-button>
+                    <n-button size="small" tertiary @click="navigateToTemplates">Шаблоны КП</n-button>
+                </n-space>
+            </div>
+        </n-layout-sider>
+        <n-layout has-sider class="content-with-history">
+            <n-layout-content>
+                <n-spin :show="loading || restoringHistory">
+                    <div class="content-wrapper">
+                        <n-space vertical size="large">
+                            <n-card title="Поиск и парсинг контактов">
+                                <n-space class="search-row" align="center" size="small">
+                                    <n-input class="query-input" v-model:value="query"
+                                        placeholder="Музыкальные студии Тюмень" clearable @keydown.enter="run" />
+                                    <n-input-number class="pages-input" v-model:value="pagesCount" :min="1" :max="10"
+                                        :step="1" button-placement="both" />
+                                    <n-button class="search-button" type="primary" size="medium" :loading="loading"
+                                        @click="run">
+                                        {{ loading ? 'Идет поиск...' : 'Старт' }}
+                                    </n-button>
+                                </n-space>
+                            </n-card>
+
+                            <n-alert v-if="error" type="error" :show-icon="true">
+                                {{ error }}
+                            </n-alert>
+
+                            <div class="progress-row">
+                                <n-progress v-if="loading" type="line" :percentage="100" processing indeterminate />
+                                <n-progress v-else-if="results.length" type="line" :percentage="100" />
+                                <n-button size="small" tertiary :disabled="!globalLogs.length" @click="showLogs = true">
+                                    Открыть логи
                                 </n-button>
                             </div>
-                        </template>
-                        <n-empty v-else description="История пуста" />
-                    </n-scrollbar>
-                </div>
-            </n-spin>
-        </n-layout-sider>
-        <n-layout-content>
-            <n-spin :show="loading || restoringHistory">
-                <div class="content-wrapper">
-                    <n-space vertical size="large">
-                        <n-card title="Поиск и парсинг контактов">
-                            <n-space class="search-row" align="center" size="small">
-                                <n-input class="query-input" v-model:value="query"
-                                    placeholder="Музыкальные студии Тюмень" clearable @keydown.enter="run" />
-                                <n-input-number class="pages-input" v-model:value="pagesCount" :min="1" :max="10"
-                                    :step="1" button-placement="both" />
-                                <n-button class="search-button" type="primary" size="medium" :loading="loading"
-                                    @click="run">
-                                    {{ loading ? 'Идет поиск...' : 'Старт' }}
-                                </n-button>
-                            </n-space>
-                        </n-card>
 
-                        <n-alert v-if="error" type="error" :show-icon="true">
-                            {{ error }}
-                        </n-alert>
 
-                        <div class="progress-row">
-                            <n-progress v-if="loading" type="line" :percentage="100" processing indeterminate />
-                            <n-progress v-else-if="results.length" type="line" :percentage="100" />
-                            <n-button size="small" tertiary :disabled="!globalLogs.length" @click="showLogs = true">
-                                Открыть логи
-                            </n-button>
-                        </div>
 
-                        <n-card v-if="results.length" :title="`Результаты (${results.length})`">
-                            <n-space vertical size="large">
-                                <n-card v-for="(r, idx) in results" :key="idx" bordered class="result-card">
-                                    <n-space vertical size="small">
-                                        <n-text strong>{{ r.link.title }}</n-text>
-                                        <n-a :href="r.page" target="_blank">{{ r.page }}</n-a>
-                                        <n-text depth="3">{{ r.link.snippet }}</n-text>
-                                    </n-space>
-
-                                    <n-grid :x-gap="12" :y-gap="12" :cols="24" class="contacts-grid">
-                                        <n-grid-item :span="24" :span-lg="8">
-                                            <n-text strong class="section-label">Emails</n-text>
-                                            <template v-if="r.contacts.emails.length">
-                                                <n-space wrap>
-                                                    <n-tag v-for="(email, eIdx) in r.contacts.emails"
-                                                        :key="`email-${eIdx}`" type="success">
-                                                        {{ email }}
-                                                    </n-tag>
-                                                </n-space>
-                                            </template>
-                                            <n-text v-else depth="3">нет</n-text>
-                                        </n-grid-item>
-                                        <n-grid-item :span="24" :span-lg="8">
-                                            <n-text strong class="section-label">Телефоны</n-text>
-                                            <template v-if="r.contacts.phones.length">
-                                                <n-space wrap>
-                                                    <n-tag v-for="(phone, pIdx) in r.contacts.phones"
-                                                        :key="`phone-${pIdx}`">
-                                                        {{ phone }}
-                                                    </n-tag>
-                                                </n-space>
-                                            </template>
-                                            <n-text v-else depth="3">нет</n-text>
-                                        </n-grid-item>
-                                        <n-grid-item :span="24" :span-lg="8">
-                                            <n-text strong class="section-label">Соцсети</n-text>
-                                            <template v-if="r.contacts.socials.length">
-                                                <n-space wrap>
-                                                    <n-a v-for="(social, sIdx) in r.contacts.socials"
-                                                        :key="`social-${sIdx}`" :href="social.url" target="_blank">
-                                                        {{ social.platform }}
-                                                    </n-a>
-                                                </n-space>
-                                            </template>
-                                            <n-text v-else depth="3">нет</n-text>
-                                        </n-grid-item>
-                                    </n-grid>
-
-                                    <n-divider />
-                                    <div class="card-actions">
-                                        <n-space :size="8" wrap>
-                                            <n-button tertiary type="primary" @click="openSendOffer(r)">Отправить
-                                                КП</n-button>
-                                            <n-button tertiary @click="openTemplates">Шаблоны КП</n-button>
+                            <n-card v-if="results.length" :title="`Результаты (${results.length})`">
+                                <n-space vertical size="large">
+                                    <n-card v-for="(r, idx) in results" :key="idx" bordered class="result-card">
+                                        <n-space vertical size="small">
+                                            <n-text strong>{{ r.link.title }}</n-text>
+                                            <n-a :href="r.page" target="_blank">{{ r.page }}</n-a>
+                                            <n-text depth="3">{{ r.link.snippet }}</n-text>
                                         </n-space>
-                                    </div>
 
-                                    <n-text v-if="r.hintsTried?.length" depth="3" class="hints-label">
-                                        Навигация пробована: {{ r.hintsTried.join(' | ') }}
-                                    </n-text>
+                                        <n-grid :x-gap="12" :y-gap="12" :cols="24" class="contacts-grid">
+                                            <n-grid-item :span="24" :span-lg="8">
+                                                <n-text strong class="section-label">Emails</n-text>
+                                                <template v-if="r.contacts.emails.length">
+                                                    <n-space wrap>
+                                                        <n-tag v-for="(email, eIdx) in r.contacts.emails"
+                                                            :key="`email-${eIdx}`" type="success">
+                                                            {{ email }}
+                                                        </n-tag>
+                                                    </n-space>
+                                                </template>
+                                                <n-text v-else depth="3">нет</n-text>
+                                            </n-grid-item>
+                                            <n-grid-item :span="24" :span-lg="8">
+                                                <n-text strong class="section-label">Телефоны</n-text>
+                                                <template v-if="r.contacts.phones.length">
+                                                    <n-space wrap>
+                                                        <n-tag v-for="(phone, pIdx) in r.contacts.phones"
+                                                            :key="`phone-${pIdx}`">
+                                                            {{ phone }}
+                                                        </n-tag>
+                                                    </n-space>
+                                                </template>
+                                                <n-text v-else depth="3">нет</n-text>
+                                            </n-grid-item>
+                                            <n-grid-item :span="24" :span-lg="8">
+                                                <n-text strong class="section-label">Соцсети</n-text>
+                                                <template v-if="r.contacts.socials.length">
+                                                    <n-space wrap>
+                                                        <n-a v-for="(social, sIdx) in r.contacts.socials"
+                                                            :key="`social-${sIdx}`" :href="social.url" target="_blank">
+                                                            {{ social.platform }}
+                                                        </n-a>
+                                                    </n-space>
+                                                </template>
+                                                <n-text v-else depth="3">нет</n-text>
+                                            </n-grid-item>
+                                        </n-grid>
 
-                                    <n-collapse v-if="r.logs?.length" class="item-collapse">
-                                        <n-collapse-item title="Логи по элементу">
-                                            <n-scrollbar style="max-height: 200px;">
-                                                <pre class="log-pre">{{ r.logs.join('\n') }}</pre>
-                                            </n-scrollbar>
-                                        </n-collapse-item>
-                                    </n-collapse>
-                                </n-card>
-                            </n-space>
-                        </n-card>
-                    </n-space>
-                </div>
-            </n-spin>
-        </n-layout-content>
+                                        <n-divider />
+                                        <div class="card-actions">
+                                            <n-space :size="8" wrap>
+                                                <n-button tertiary type="primary" @click="openSendOffer(r)">Отправить
+                                                    КП</n-button>
+                                            </n-space>
+                                        </div>
+
+                                        <n-text v-if="r.hintsTried?.length" depth="3" class="hints-label">
+                                            Навигация пробована: {{ r.hintsTried.join(' | ') }}
+                                        </n-text>
+
+                                        <n-collapse v-if="r.logs?.length" class="item-collapse">
+                                            <n-collapse-item title="Логи по элементу">
+                                                <n-scrollbar style="max-height: 200px;">
+                                                    <pre class="log-pre">{{ r.logs.join('\n') }}</pre>
+                                                </n-scrollbar>
+                                            </n-collapse-item>
+                                        </n-collapse>
+                                    </n-card>
+                                </n-space>
+                            </n-card>
+                        </n-space>
+                    </div>
+                </n-spin>
+            </n-layout-content>
+            <n-layout-sider width="300" class="history-sider" :native-scrollbar="false">
+                <div class="sidebar-header">История</div>
+                <n-spin :show="historyLoading">
+                    <div class="history-wrapper">
+                        <n-scrollbar class="history-scroll">
+                            <template v-if="historyItems.length">
+                                <div class="history-list">
+                                    <n-button v-for="item in historyItems" :key="item.id" quaternary block
+                                        class="history-item"
+                                        :class="{ 'history-item_active': item.id === historySelectedId }"
+                                        @click="handleHistorySelect(item.id)">
+                                        <div class="history-item__content">
+                                            <div class="history-item__title">{{ item.query }}</div>
+                                            <div class="history-item__date">{{ formatHistoryDate(item.createdAt) }}
+                                            </div>
+                                        </div>
+                                    </n-button>
+                                </div>
+                            </template>
+                            <n-empty v-else description="История пуста" />
+                        </n-scrollbar>
+                    </div>
+                </n-spin>
+            </n-layout-sider>
+        </n-layout>
     </n-layout>
 
     <n-modal v-model:show="sendOfferVisible" preset="card" title="Отправка КП" class="modal-wide">
         <n-form label-placement="top">
+            <n-form-item label="Шаблон">
+                <n-select v-model:value="sendForm.templateId" :options="templateSelectOptions"
+                    placeholder="Выберите шаблон" @update:value="onTemplatePicked" />
+            </n-form-item>
             <n-form-item label="Получатели (email)">
                 <n-select v-model:value="sendForm.emails" multiple :options="recipientOptions" filterable
                     placeholder="email@domain.ru" />
@@ -138,20 +155,10 @@
             <n-form-item label="Тема">
                 <n-input v-model:value="sendForm.subject" placeholder="Коммерческое предложение" />
             </n-form-item>
-            <n-form-item label="Режим">
-                <n-select v-model:value="sendForm.mode" :options="modeOptions" />
-            </n-form-item>
-            <n-form-item v-if="sendForm.mode === 'text'" label="Шаблон (текст)">
-                <n-select v-model:value="sendForm.textTemplateId" :options="textTemplateOptions"
-                    placeholder="Выберите шаблон" />
-            </n-form-item>
-            <n-form-item v-if="sendForm.mode === 'text'" label="Текст письма">
+            <n-form-item label="Текст письма">
                 <n-input v-model:value="sendForm.body" type="textarea" :rows="8" placeholder="Текст КП" />
             </n-form-item>
-            <n-form-item v-if="sendForm.mode === 'file'" label="Шаблон (файл)">
-                <n-select v-model:value="sendForm.fileTemplateId" :options="fileTemplateOptions"
-                    placeholder="Выберите файл-шаблон" />
-            </n-form-item>
+            <n-text depth="3" v-if="pickedTemplateFileName">Файл из шаблона: {{ pickedTemplateFileName }}</n-text>
         </n-form>
         <template #footer>
             <n-space justify="end">
@@ -264,99 +271,47 @@ const restoringHistory = ref(false)
 const showLogs = ref(false)
 
 const sendOfferVisible = ref(false)
-const templatesVisible = ref(false)
 const sending = ref(false)
-const savingTemplates = ref(false)
-const uploading = ref(false)
-const templates = ref<TemplatesStore>({ textTemplates: [], fileTemplates: [] })
+const templateList = ref<{ id: string; name: string; subject: string; body: string; file?: { originalName: string } }[]>([])
 const recipientOptions = ref<{ label: string; value: string }[]>([])
-const modeOptions = [
-    { label: 'Текст письма', value: 'text' },
-    { label: 'Файл-вложение', value: 'file' },
-]
-const textTemplateOptions = computed(() => templates.value.textTemplates.map(t => ({ label: t.name, value: t.id })))
-const fileTemplateOptions = computed(() => templates.value.fileTemplates.map(t => ({ label: `${t.name} (${t.originalName})`, value: t.id })))
+const templateSelectOptions = computed(() => templateList.value.map(t => ({ label: t.name, value: t.id })))
+const pickedTemplateFileName = ref('')
 
 const sendForm = reactive({
     emails: [] as string[],
     subject: 'Коммерческое предложение',
-    mode: 'text' as 'text' | 'file',
-    textTemplateId: '',
-    fileTemplateId: '',
+    templateId: '',
     body: '',
 })
 
-const editTextTpl = reactive({
-    id: 'general-text',
-    name: 'Общий шаблон',
-    subject: 'Коммерческое предложение',
-    body: '',
-})
+const navigateToTemplates = () => {
+    navigateTo('/templates')
+}
 
-const editFileTpl = reactive({
-    id: 'general-file',
-    name: 'Общий файл КП',
-    file: null as File | null,
-})
-
-const loadTemplates = async () => {
+const loadAllTemplates = async () => {
     const data = await $fetch('/api/templates')
-    templates.value = data as TemplatesStore
-}
-
-const openTemplates = async () => {
-    await loadTemplates()
-    const t = templates.value.textTemplates.find(t => t.id === editTextTpl.id)
-    if (t) {
-        editTextTpl.name = t.name
-        editTextTpl.subject = t.subject
-        editTextTpl.body = t.body
-    }
-    templatesVisible.value = true
-}
-
-const onFilePicked = (options: any) => {
-    const file = options?.file?.file as File | undefined
-    editFileTpl.file = file || null
-}
-
-const uploadFileTemplate = async () => {
-    if (!editFileTpl.file) return
-    uploading.value = true
-    try {
-        const form = new FormData()
-        form.append('id', editFileTpl.id)
-        form.append('name', editFileTpl.name)
-        form.append('file', editFileTpl.file)
-        await $fetch('/api/templates/upload', { method: 'POST', body: form })
-        await loadTemplates()
-    } finally {
-        uploading.value = false
-    }
-}
-
-const saveTextTemplate = async () => {
-    savingTemplates.value = true
-    try {
-        await $fetch('/api/templates', { method: 'POST', body: editTextTpl })
-        await loadTemplates()
-    } finally {
-        savingTemplates.value = false
-    }
+    templateList.value = (data as any).templates || []
 }
 
 const openSendOffer = async (item: SearchResultItem) => {
-    await loadTemplates()
+    await loadAllTemplates()
     const emails = (item.contacts.emails || []).filter(Boolean)
     recipientOptions.value = emails.map(e => ({ label: e, value: e }))
     sendForm.emails = emails.slice(0, 3)
-    const txt = templates.value.textTemplates.find(t => t.id === editTextTpl.id)
-    sendForm.textTemplateId = txt ? txt.id : (templates.value.textTemplates[0]?.id || '')
-    sendForm.fileTemplateId = templates.value.fileTemplates[0]?.id || ''
-    sendForm.subject = 'Коммерческое предложение'
-    sendForm.body = txt?.body || ''
-    sendForm.mode = 'text'
+    const first = templateList.value[0]
+    sendForm.templateId = first?.id || ''
+    sendForm.subject = first?.subject || 'Коммерческое предложение'
+    sendForm.body = first?.body || ''
+    pickedTemplateFileName.value = first?.file?.originalName || ''
     sendOfferVisible.value = true
+}
+
+const onTemplatePicked = (id: string) => {
+    const tpl = templateList.value.find(t => t.id === id)
+    if (!tpl) return
+    sendForm.subject = tpl.subject || 'Коммерческое предложение'
+    sendForm.body = tpl.body || ''
+    pickedTemplateFileName.value = tpl.file?.originalName || ''
 }
 
 const sendOffer = async () => {
@@ -370,10 +325,8 @@ const sendOffer = async () => {
             body: {
                 emails: sendForm.emails,
                 subject: sendForm.subject,
-                mode: sendForm.mode,
-                textTemplateId: sendForm.mode === 'text' ? sendForm.textTemplateId : undefined,
-                body: sendForm.mode === 'text' ? sendForm.body : undefined,
-                fileTemplateId: sendForm.mode === 'file' ? sendForm.fileTemplateId : undefined,
+                templateId: sendForm.templateId,
+                body: sendForm.body,
             },
         })
         sendOfferVisible.value = false
@@ -478,6 +431,7 @@ onMounted(async () => {
 <style scoped>
     .page-layout {
         min-height: 100vh;
+        height: 100vh;
     }
 
     .search-row {
@@ -562,6 +516,16 @@ onMounted(async () => {
 
     .history-wrapper {
         height: calc(100vh - 90px);
+    }
+
+    .sidebar-actions {
+        padding: 0 16px 12px 16px;
+    }
+
+    .history-sider {
+        border-left: 1px solid rgba(224, 224, 230, 0.6);
+        background: #f7f8fa;
+        padding: 16px 0;
     }
 
     .history-scroll {

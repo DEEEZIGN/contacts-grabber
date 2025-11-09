@@ -5,19 +5,14 @@ import { join } from 'node:path'
 type Body = {
     emails: string[]
     subject?: string
-    mode: 'text' | 'file'
-    textTemplateId?: string
+    templateId?: string
     body?: string
-    fileTemplateId?: string
 }
 
 export default defineEventHandler(async (event) => {
     const body = await readBody<Body>(event)
     if (!body?.emails?.length) {
         throw createError({ statusCode: 400, statusMessage: 'emails required' })
-    }
-    if (body.mode !== 'text' && body.mode !== 'file') {
-        throw createError({ statusCode: 400, statusMessage: 'invalid mode' })
     }
 
     const cfg = useRuntimeConfig()
@@ -40,24 +35,23 @@ export default defineEventHandler(async (event) => {
     })
 
     const subject = body.subject || 'Коммерческое предложение'
-    const { textTemplates, fileTemplates } = listTemplates()
+    const templates = listTemplates()
     const attachments: { filename: string; path: string; contentType?: string }[] = []
     let html = ''
 
-    if (body.mode === 'text') {
-        const tpl = textTemplates.find((t) => t.id === body.textTemplateId)
-        html = body.body || tpl?.body || ''
-    } else {
-        const tpl = fileTemplates.find((t) => t.id === body.fileTemplateId)
-        if (!tpl) {
-            throw createError({ statusCode: 400, statusMessage: 'fileTemplateId not found' })
+    if (body.templateId) {
+        const tpl = templates.find(t => t.id === body.templateId)
+        if (!tpl) throw createError({ statusCode: 404, statusMessage: 'template not found' })
+        html = body.body ?? tpl.body ?? ''
+        if (tpl.file) {
+            const uploadsDir = join(process.cwd(), 'data', 'uploads')
+            attachments.push({
+                filename: tpl.file.originalName,
+                path: join(uploadsDir, tpl.file.filename),
+                contentType: tpl.file.mime,
+            })
         }
-        const uploadsDir = join(process.cwd(), 'data', 'uploads')
-        attachments.push({
-            filename: tpl.originalName,
-            path: join(uploadsDir, tpl.filename),
-            contentType: tpl.mime,
-        })
+    } else {
         html = body.body || ''
     }
 

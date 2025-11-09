@@ -1131,7 +1131,22 @@ const plugins = [
   _QWNF8eIQpiTtHqsf0RYCV8pPYckwhIwlL5RYC2TJ_Y
 ];
 
-const assets = {};
+const assets = {
+  "/index.mjs": {
+    "type": "text/javascript; charset=utf-8",
+    "etag": "\"1b6ba-oaLRN96crNkZ5vgSd5SAF1wMs2M\"",
+    "mtime": "2025-11-09T20:28:11.893Z",
+    "size": 112314,
+    "path": "index.mjs"
+  },
+  "/index.mjs.map": {
+    "type": "application/json",
+    "etag": "\"68a73-bngyax4JW6SFPcz4QTq9dE7MnRk\"",
+    "mtime": "2025-11-09T20:28:11.893Z",
+    "size": 428659,
+    "path": "index.mjs.map"
+  }
+};
 
 function readAsset (id) {
   const serverDir = dirname$1(fileURLToPath(globalThis._importMeta_.url));
@@ -1226,6 +1241,7 @@ const _lazy_AFVAmM = () => Promise.resolve().then(function () { return search_po
 const _lazy_HOWorg = () => Promise.resolve().then(function () { return sendOffer_post$1; });
 const _lazy_6BDBGm = () => Promise.resolve().then(function () { return templates_get$1; });
 const _lazy_mOkQr3 = () => Promise.resolve().then(function () { return templates_post$1; });
+const _lazy_wZVZ2w = () => Promise.resolve().then(function () { return _id__delete$1; });
 const _lazy_3KUQoR = () => Promise.resolve().then(function () { return upload_post$1; });
 const _lazy_gspZnU = () => Promise.resolve().then(function () { return renderer$1; });
 
@@ -1237,6 +1253,7 @@ const handlers = [
   { route: '/api/send-offer', handler: _lazy_HOWorg, lazy: true, middleware: false, method: "post" },
   { route: '/api/templates', handler: _lazy_6BDBGm, lazy: true, middleware: false, method: "get" },
   { route: '/api/templates', handler: _lazy_mOkQr3, lazy: true, middleware: false, method: "post" },
+  { route: '/api/templates/:id', handler: _lazy_wZVZ2w, lazy: true, middleware: false, method: "delete" },
   { route: '/api/templates/upload', handler: _lazy_3KUQoR, lazy: true, middleware: false, method: "post" },
   { route: '/__nuxt_error', handler: _lazy_gspZnU, lazy: true, middleware: false, method: undefined },
   { route: '/**', handler: _lazy_gspZnU, lazy: true, middleware: false, method: undefined }
@@ -2270,17 +2287,17 @@ function ensureStore() {
   if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
   if (!existsSync(uploadsDir)) mkdirSync(uploadsDir, { recursive: true });
   if (!existsSync(storePath)) {
-    const initial = { textTemplates: [], fileTemplates: [] };
+    const initial = { templates: [] };
     writeFileSync(storePath, JSON.stringify(initial, null, 2), "utf-8");
     return initial;
   }
   try {
     const raw = readFileSync(storePath, "utf-8");
     const parsed = JSON.parse(raw);
-    if (!parsed.textTemplates || !parsed.fileTemplates) throw new Error("invalid");
+    if (!Array.isArray(parsed.templates)) throw new Error("invalid");
     return parsed;
   } catch {
-    const reset = { textTemplates: [], fileTemplates: [] };
+    const reset = { templates: [] };
     writeFileSync(storePath, JSON.stringify(reset, null, 2), "utf-8");
     return reset;
   }
@@ -2289,33 +2306,45 @@ function persist(store) {
   writeFileSync(storePath, JSON.stringify(store, null, 2), "utf-8");
 }
 function listTemplates() {
-  return ensureStore();
+  return ensureStore().templates;
 }
-function upsertTextTemplate(input) {
+function upsertTemplate(input) {
   const store = ensureStore();
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  const existingIdx = store.textTemplates.findIndex((t) => t.id === input.id);
+  const idx = store.templates.findIndex((t) => t.id === input.id);
   const tpl = { ...input, updatedAt: now };
-  if (existingIdx >= 0) {
-    store.textTemplates[existingIdx] = tpl;
+  if (idx >= 0) {
+    store.templates[idx] = tpl;
   } else {
-    store.textTemplates.push(tpl);
+    store.templates.push(tpl);
   }
   persist(store);
   return tpl;
 }
-function saveFileTemplate(meta) {
+function deleteTemplate(id) {
   const store = ensureStore();
-  const now = (/* @__PURE__ */ new Date()).toISOString();
-  const existingIdx = store.fileTemplates.findIndex((t) => t.id === meta.id);
-  const tpl = { ...meta, updatedAt: now };
-  if (existingIdx >= 0) {
-    store.fileTemplates[existingIdx] = tpl;
-  } else {
-    store.fileTemplates.push(tpl);
-  }
+  const lenBefore = store.templates.length;
+  store.templates = store.templates.filter((t) => t.id !== id);
   persist(store);
-  return tpl;
+  return store.templates.length < lenBefore;
+}
+function setTemplateFile(id, meta) {
+  const store = ensureStore();
+  const idx = store.templates.findIndex((t) => t.id === id);
+  if (idx < 0) {
+    return null;
+  }
+  store.templates[idx] = {
+    ...store.templates[idx],
+    file: {
+      filename: meta.filename,
+      originalName: meta.originalName,
+      mime: meta.mime
+    },
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  persist(store);
+  return store.templates[idx];
 }
 function getUploadsDir() {
   ensureStore();
@@ -2323,13 +2352,10 @@ function getUploadsDir() {
 }
 
 const sendOffer_post = defineEventHandler(async (event) => {
-  var _a;
+  var _a, _b, _c;
   const body = await readBody(event);
   if (!((_a = body == null ? void 0 : body.emails) == null ? void 0 : _a.length)) {
     throw createError({ statusCode: 400, statusMessage: "emails required" });
-  }
-  if (body.mode !== "text" && body.mode !== "file") {
-    throw createError({ statusCode: 400, statusMessage: "invalid mode" });
   }
   const cfg = useRuntimeConfig();
   const host = cfg.SMTP_HOST;
@@ -2348,23 +2374,22 @@ const sendOffer_post = defineEventHandler(async (event) => {
     auth: { user, pass }
   });
   const subject = body.subject || "\u041A\u043E\u043C\u043C\u0435\u0440\u0447\u0435\u0441\u043A\u043E\u0435 \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0435";
-  const { textTemplates, fileTemplates } = listTemplates();
+  const templates = listTemplates();
   const attachments = [];
   let html = "";
-  if (body.mode === "text") {
-    const tpl = textTemplates.find((t) => t.id === body.textTemplateId);
-    html = body.body || (tpl == null ? void 0 : tpl.body) || "";
-  } else {
-    const tpl = fileTemplates.find((t) => t.id === body.fileTemplateId);
-    if (!tpl) {
-      throw createError({ statusCode: 400, statusMessage: "fileTemplateId not found" });
+  if (body.templateId) {
+    const tpl = templates.find((t) => t.id === body.templateId);
+    if (!tpl) throw createError({ statusCode: 404, statusMessage: "template not found" });
+    html = (_c = (_b = body.body) != null ? _b : tpl.body) != null ? _c : "";
+    if (tpl.file) {
+      const uploadsDir = join(process.cwd(), "data", "uploads");
+      attachments.push({
+        filename: tpl.file.originalName,
+        path: join(uploadsDir, tpl.file.filename),
+        contentType: tpl.file.mime
+      });
     }
-    const uploadsDir = join(process.cwd(), "data", "uploads");
-    attachments.push({
-      filename: tpl.originalName,
-      path: join(uploadsDir, tpl.filename),
-      contentType: tpl.mime
-    });
+  } else {
     html = body.body || "";
   }
   const info = await transporter.sendMail({
@@ -2383,7 +2408,7 @@ const sendOffer_post$1 = /*#__PURE__*/Object.freeze({
 });
 
 const templates_get = defineEventHandler(() => {
-  return listTemplates();
+  return { templates: listTemplates() };
 });
 
 const templates_get$1 = /*#__PURE__*/Object.freeze({
@@ -2396,11 +2421,12 @@ const templates_post = defineEventHandler(async (event) => {
   if (!(body == null ? void 0 : body.id) || !(body == null ? void 0 : body.name)) {
     throw createError({ statusCode: 400, statusMessage: "id and name are required" });
   }
-  const saved = upsertTextTemplate({
+  const saved = upsertTemplate({
     id: body.id,
     name: body.name,
     subject: body.subject || "",
-    body: body.body || ""
+    body: body.body || "",
+    file: void 0
   });
   return saved;
 });
@@ -2408,6 +2434,23 @@ const templates_post = defineEventHandler(async (event) => {
 const templates_post$1 = /*#__PURE__*/Object.freeze({
   __proto__: null,
   default: templates_post
+});
+
+const _id__delete = defineEventHandler((event) => {
+  const id = getRouterParam(event, "id");
+  if (!id) {
+    throw createError({ statusCode: 400, statusMessage: "id is required" });
+  }
+  const ok = deleteTemplate(id);
+  if (!ok) {
+    throw createError({ statusCode: 404, statusMessage: "template not found" });
+  }
+  return { ok: true };
+});
+
+const _id__delete$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: _id__delete
 });
 
 const upload_post = defineEventHandler(async (event) => {
@@ -2423,18 +2466,19 @@ const upload_post = defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "file is required" });
   }
   const id = ((_a = idField == null ? void 0 : idField.data) == null ? void 0 : _a.toString("utf-8")) || randomUUID();
-  const name = ((_b = nameField == null ? void 0 : nameField.data) == null ? void 0 : _b.toString("utf-8")) || file.filename;
+  ((_b = nameField == null ? void 0 : nameField.data) == null ? void 0 : _b.toString("utf-8")) || file.filename;
   const uploads = getUploadsDir();
   const storedName = `${id}-${Date.now()}-${file.filename}`;
   const target = join(uploads, storedName);
   writeFileSync(target, file.data);
-  const saved = saveFileTemplate({
-    id,
-    name,
+  const saved = setTemplateFile(id, {
     filename: storedName,
     originalName: file.filename,
     mime: file.type || "application/octet-stream"
   });
+  if (!saved) {
+    throw createError({ statusCode: 404, statusMessage: "template not found for provided id" });
+  }
   return saved;
 });
 

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { getUploadsDir, saveFileTemplate } from '@/server/utils/templates'
+import { getUploadsDir, setTemplateFile } from '@/server/utils/templates'
 
 export default defineEventHandler(async (event) => {
     const form = await readMultipartFormData(event)
@@ -20,13 +20,14 @@ export default defineEventHandler(async (event) => {
     const storedName = `${id}-${Date.now()}-${file.filename}`
     const target = join(uploads, storedName)
     writeFileSync(target, file.data)
-    const saved = saveFileTemplate({
-        id,
-        name,
+    const saved = setTemplateFile(id, {
         filename: storedName,
         originalName: file.filename,
         mime: file.type || 'application/octet-stream',
     })
+    if (!saved) {
+        throw createError({ statusCode: 404, statusMessage: 'template not found for provided id' })
+    }
     return saved
 })
 

@@ -19,6 +19,9 @@ declare module "nitropack/types" {
       'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/templates.get').default>>>>
       'post': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/templates.post').default>>>>
     }
+    '/api/templates/:id': {
+      'delete': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/templates/[id].delete').default>>>>
+    }
     '/api/templates/upload': {
       'post': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/templates/upload.post').default>>>>
     }
