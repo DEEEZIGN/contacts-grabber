@@ -42,6 +42,8 @@ declare global {
   const extractAnchorCandidates: typeof import('../../server/utils/scrape').extractAnchorCandidates
   const extractContactsFromHtml: typeof import('../../server/utils/ai').extractContactsFromHtml
   const extractLinksFromSerpHtml: typeof import('../../server/utils/ai').extractLinksFromSerpHtml
+  const fetchHistory: typeof import('../../server/utils/db').fetchHistory
+  const fetchHistoryEntry: typeof import('../../server/utils/db').fetchHistoryEntry
   const fetchHtml: typeof import('../../server/utils/scrape').fetchHtml
   const fetchWithEvent: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').fetchWithEvent
   const fromNodeMiddleware: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').fromNodeMiddleware
@@ -100,6 +102,7 @@ declare global {
   const runTask: typeof import('../../node_modules/.pnpm/nitropack@2.12.9/node_modules/nitropack/dist/runtime/internal/task').runTask
   const sanitizeStatusCode: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').sanitizeStatusCode
   const sanitizeStatusMessage: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').sanitizeStatusMessage
+  const saveSearchResult: typeof import('../../server/utils/db').saveSearchResult
   const sealSession: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').sealSession
   const selectLinksFromCandidates: typeof import('../../server/utils/ai').selectLinksFromCandidates
   const selectRelevantLinks: typeof import('../../server/utils/ai').selectRelevantLinks
@@ -143,6 +146,9 @@ declare global {
   export type { LinkSummary, FilteredLink, ContactExtraction } from '../../server/utils/ai'
   import('../../server/utils/ai')
   // @ts-ignore
+  export type { HistoryListItem, HistoryEntry } from '../../server/utils/db'
+  import('../../server/utils/db')
+  // @ts-ignore
   export type { SearchResult } from '../../server/utils/scrape'
   import('../../server/utils/scrape')
 }
@@ -161,4 +167,5 @@ export { appendCorsHeaders, appendCorsPreflightHeaders, appendHeader, appendHead
 export { buildAssetsURL as __buildAssetsURL, publicAssetsURL as __publicAssetsURL } from '/Volumes/L/Misha/node_modules/.pnpm/nuxt@3.13.2_@types+node@22.8.6_eslint@9.14.0_sass@1.80.6_typescript@5.6.3_vite@7.2.0_vue-tsc@3.1.3/node_modules/nuxt/dist/core/runtime/nitro/paths';
 export { defineAppConfig } from '/Volumes/L/Misha/node_modules/.pnpm/nuxt@3.13.2_@types+node@22.8.6_eslint@9.14.0_sass@1.80.6_typescript@5.6.3_vite@7.2.0_vue-tsc@3.1.3/node_modules/nuxt/dist/core/runtime/nitro/config';
 export { selectRelevantLinks, extractContactsFromHtml, suggestNavigationForContacts, extractLinksFromSerpHtml, selectLinksFromCandidates } from '/Volumes/L/Misha/server/utils/ai';
+export { saveSearchResult, fetchHistory, fetchHistoryEntry } from '/Volumes/L/Misha/server/utils/db';
 export { stripHtmlAssets, extractAnchorCandidates, heuristicExtractContacts, googleSearch, googleSearchHtml, fetchHtml, navigateByHints } from '/Volumes/L/Misha/server/utils/scrape';

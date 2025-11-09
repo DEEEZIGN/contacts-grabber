@@ -4,6 +4,7 @@ import { Server } from 'node:http';
 import { resolve, dirname, join } from 'node:path';
 import nodeCrypto from 'node:crypto';
 import { parentPort, threadId } from 'node:worker_threads';
+import { promises, existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import puppeteer from 'file:///Volumes/L/Misha/node_modules/.pnpm/puppeteer@24.24.0_typescript@5.6.3/node_modules/puppeteer/lib/esm/puppeteer/puppeteer.js';
 import OpenAI from 'file:///Volumes/L/Misha/node_modules/.pnpm/openai@4.67.1/node_modules/openai/index.mjs';
 import { getRequestDependencies, getPreloadLinks, getPrefetchLinks, createRenderer } from 'file:///Volumes/L/Misha/node_modules/.pnpm/vue-bundle-renderer@2.2.0/node_modules/vue-bundle-renderer/dist/runtime.mjs';
@@ -31,7 +32,6 @@ import { SourceMapConsumer } from 'file:///Volumes/L/Misha/node_modules/.pnpm/so
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { captureRawStackTrace, parseRawStackTrace } from 'file:///Volumes/L/Misha/node_modules/.pnpm/errx@0.1.0/node_modules/errx/dist/index.js';
 import { isVNode, unref, version } from 'file:///Volumes/L/Misha/node_modules/.pnpm/vue@3.5.22_typescript@5.6.3/node_modules/vue/index.mjs';
-import { promises } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname as dirname$1, resolve as resolve$1 } from 'file:///Volumes/L/Misha/node_modules/.pnpm/pathe@1.1.2/node_modules/pathe/dist/index.mjs';
 import { createServerHead as createServerHead$1, CapoPlugin } from 'file:///Volumes/L/Misha/node_modules/.pnpm/unhead@1.11.20/node_modules/unhead/dist/index.mjs';
@@ -1219,11 +1219,15 @@ const _FNHlDH = eventHandler((event) => {
   return readAsset(id);
 });
 
+const _lazy_77pPbs = () => Promise.resolve().then(function () { return history_get$1; });
+const _lazy_Fnr07D = () => Promise.resolve().then(function () { return _id__get$1; });
 const _lazy_AFVAmM = () => Promise.resolve().then(function () { return search_post$1; });
 const _lazy_gspZnU = () => Promise.resolve().then(function () { return renderer$1; });
 
 const handlers = [
   { route: '', handler: _FNHlDH, lazy: false, middleware: true, method: undefined },
+  { route: '/api/history', handler: _lazy_77pPbs, lazy: true, middleware: false, method: "get" },
+  { route: '/api/history/:id', handler: _lazy_Fnr07D, lazy: true, middleware: false, method: "get" },
   { route: '/api/search', handler: _lazy_AFVAmM, lazy: true, middleware: false, method: "post" },
   { route: '/__nuxt_error', handler: _lazy_gspZnU, lazy: true, middleware: false, method: undefined },
   { route: '/**', handler: _lazy_gspZnU, lazy: true, middleware: false, method: undefined }
@@ -1541,6 +1545,98 @@ const template$1 = (messages) => {
 const errorDev = /*#__PURE__*/Object.freeze({
   __proto__: null,
   template: template$1
+});
+
+const dataDir = join(process.cwd(), "data");
+const historyPath = join(dataDir, "history.json");
+function ensureStore() {
+  if (!existsSync(dataDir)) {
+    mkdirSync(dataDir, { recursive: true });
+  }
+  if (!existsSync(historyPath)) {
+    const initial = { lastId: 0, items: [] };
+    writeFileSync(historyPath, JSON.stringify(initial, null, 2), "utf-8");
+    return initial;
+  }
+  try {
+    const raw = readFileSync(historyPath, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (!parsed.items || typeof parsed.lastId !== "number") {
+      throw new Error("invalid store structure");
+    }
+    return parsed;
+  } catch (err) {
+    console.error("Failed to read history store, resetting...", err);
+    const reset = { lastId: 0, items: [] };
+    writeFileSync(historyPath, JSON.stringify(reset, null, 2), "utf-8");
+    return reset;
+  }
+}
+function persistStore(store) {
+  writeFileSync(historyPath, JSON.stringify(store, null, 2), "utf-8");
+}
+function saveSearchResult(query, payload) {
+  const store = ensureStore();
+  const id = store.lastId + 1;
+  const createdAt = (/* @__PURE__ */ new Date()).toISOString();
+  const entry = {
+    id,
+    query,
+    createdAt,
+    results: payload.results,
+    logs: payload.logs
+  };
+  store.items.unshift(entry);
+  store.lastId = id;
+  if (store.items.length > 200) {
+    store.items = store.items.slice(0, 200);
+  }
+  persistStore(store);
+  return id;
+}
+function fetchHistory(limit = 30) {
+  const store = ensureStore();
+  return store.items.slice(0, limit).map((entry) => ({
+    id: entry.id,
+    query: entry.query,
+    createdAt: entry.createdAt
+  }));
+}
+function fetchHistoryEntry(id) {
+  var _a;
+  const store = ensureStore();
+  return (_a = store.items.find((entry) => entry.id === id)) != null ? _a : null;
+}
+
+const history_get = defineEventHandler(() => {
+  const items = fetchHistory(50);
+  return { items };
+});
+
+const history_get$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: history_get
+});
+
+const _id__get = defineEventHandler((event) => {
+  const idParam = getRouterParam(event, "id");
+  if (!idParam) {
+    throw createError({ statusCode: 400, statusMessage: "id is required" });
+  }
+  const id = Number.parseInt(idParam, 10);
+  if (!Number.isFinite(id)) {
+    throw createError({ statusCode: 400, statusMessage: "id must be a number" });
+  }
+  const entry = fetchHistoryEntry(id);
+  if (!entry) {
+    throw createError({ statusCode: 404, statusMessage: "history item not found" });
+  }
+  return entry;
+});
+
+const _id__get$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: _id__get
 });
 
 function stripHtmlAssets(html) {
@@ -2104,7 +2200,8 @@ const search_post = defineEventHandler(async (event) => {
     results.push({ link, page: navigated.url, contacts: merged2, hintsTried: hints, logs: itemLogs });
   }
   log(`\u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u043E. \u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u044E ${results.length} \u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u0432.`);
-  return { query: body.query, total: results.length, results, logs: globalLogs };
+  const historyId = saveSearchResult(body.query, { results, logs: globalLogs });
+  return { query: body.query, total: results.length, results, logs: globalLogs, historyId };
 });
 
 const search_post$1 = /*#__PURE__*/Object.freeze({

@@ -1,144 +1,330 @@
 <template>
-    <el-container style="min-height: 100vh;">
-        <el-main>
-            <el-card shadow="hover" style="margin-bottom: 16px;">
-                <template #header>
-                    <div class="card-header">Поиск и парсинг контактов</div>
-                </template>
-                <el-form label-position="top">
-                    <el-row :gutter="12" align="middle">
-                        <el-col :span="20">
-                            <el-form-item label="Запрос">
-                                <el-input v-model="query" placeholder="Музыкальные студии Тюмень" clearable />
-                            </el-form-item>
-                        </el-col>
-                        <el-col :span="4" style="display:flex; align-items:flex-end;">
-                            <el-button type="primary" @click="run" :loading="loading"
-                                style="width:100%">Старт</el-button>
-                        </el-col>
-                    </el-row>
-                </el-form>
-            </el-card>
+    <n-layout has-sider class="page-layout">
+        <n-layout-sider class="sidebar" :native-scrollbar="false">
+            <n-space vertical size="medium">
+                <n-text strong>История запросов</n-text>
+                <n-spin :show="historyLoading">
+                    <div class="history-wrapper">
+                        <n-scrollbar class="history-scroll">
+                            <template v-if="historyItems.length">
+                                <n-space vertical size="small">
+                                    <n-button v-for="item in historyItems" :key="item.id" quaternary block
+                                        class="history-item"
+                                        :class="{ 'history-item_active': item.id === historySelectedId }"
+                                        @click="handleHistorySelect(item.id)">
+                                        <n-space vertical size="4">
+                                            <n-text strong>{{ item.query }}</n-text>
+                                            <n-text depth="3">{{ formatHistoryDate(item.createdAt) }}</n-text>
+                                        </n-space>
+                                    </n-button>
+                                </n-space>
+                            </template>
+                            <n-empty v-else description="История пуста" />
+                        </n-scrollbar>
+                    </div>
+                </n-spin>
+            </n-space>
+        </n-layout-sider>
+        <n-layout-content>
+            <n-spin :show="loading || restoringHistory">
+                <div class="content-wrapper">
+                    <n-space vertical size="large">
+                        <n-card title="Поиск и парсинг контактов">
+                            <n-space vertical size="medium">
+                                <n-grid :x-gap="12" :y-gap="12" :cols="24" responsive="screen">
+                                    <n-grid-item :span="24" :span-md="18">
+                                        <n-space vertical size="small">
+                                            <n-text strong>Запрос</n-text>
+                                            <n-input v-model:value="query" placeholder="Музыкальные студии Тюмень"
+                                                clearable @keydown.enter="run" />
+                                        </n-space>
+                                    </n-grid-item>
+                                    <n-grid-item :span="24" :span-md="6" class="button-cell">
+                                        <n-button type="primary" size="large" :loading="loading" block @click="run">
+                                            {{ loading ? 'Идет поиск...' : 'Старт' }}
+                                        </n-button>
+                                    </n-grid-item>
+                                </n-grid>
+                            </n-space>
+                        </n-card>
 
-            <el-alert v-if="error" type="error" :closable="false" show-icon style="margin-bottom: 16px;"
-                :title="error" />
+                        <n-alert v-if="error" type="error" :show-icon="true">
+                            {{ error }}
+                        </n-alert>
 
-            <el-card v-if="globalLogs.length" shadow="never" style="margin-bottom:16px;">
-                <template #header>
-                    <div class="card-header">Логи процесса</div>
-                </template>
-                <el-scrollbar height="260px">
-                    <pre style="white-space: pre-wrap; margin:0;">{{ globalLogs.join('\n') }}</pre>
-                </el-scrollbar>
-            </el-card>
+                        <n-card v-if="globalLogs.length" title="Логи процесса">
+                            <n-scrollbar style="max-height: 260px;">
+                                <pre class="log-pre">{{ globalLogs.join('\n') }}</pre>
+                            </n-scrollbar>
+                        </n-card>
 
-            <el-card v-if="results.length" shadow="never">
-                <template #header>
-                    <div class="card-header">Результаты ({{ results.length }})</div>
-                </template>
+                        <n-card v-if="results.length" :title="`Результаты (${results.length})`">
+                            <n-space vertical size="large">
+                                <n-card v-for="(r, idx) in results" :key="idx" bordered>
+                                    <n-space vertical size="small">
+                                        <n-text strong>{{ r.link.title }}</n-text>
+                                        <n-a :href="r.page" target="_blank">{{ r.page }}</n-a>
+                                        <n-text depth="3">{{ r.link.snippet }}</n-text>
+                                    </n-space>
 
-                <el-space direction="vertical" alignment="stretch" :size="16" style="width:100%">
-                    <el-card v-for="(r, idx) in results" :key="idx" shadow="hover">
-                        <el-row :gutter="12">
-                            <el-col :span="24">
-                                <div style="display:flex; flex-direction:column; gap:4px;">
-                                    <strong>{{ r.link.title }}</strong>
-                                    <el-link :href="r.page" target="_blank" type="primary">{{ r.page }}</el-link>
-                                    <span style="color:#6b7280;">{{ r.link.snippet }}</span>
-                                </div>
-                            </el-col>
-                        </el-row>
+                                    <n-grid :x-gap="12" :y-gap="12" :cols="24" class="contacts-grid">
+                                        <n-grid-item :span="24" :span-lg="8">
+                                            <n-text strong class="section-label">Emails</n-text>
+                                            <template v-if="r.contacts.emails.length">
+                                                <n-space wrap>
+                                                    <n-tag v-for="(email, eIdx) in r.contacts.emails"
+                                                        :key="`email-${eIdx}`" type="success">
+                                                        {{ email }}
+                                                    </n-tag>
+                                                </n-space>
+                                            </template>
+                                            <n-text v-else depth="3">нет</n-text>
+                                        </n-grid-item>
+                                        <n-grid-item :span="24" :span-lg="8">
+                                            <n-text strong class="section-label">Телефоны</n-text>
+                                            <template v-if="r.contacts.phones.length">
+                                                <n-space wrap>
+                                                    <n-tag v-for="(phone, pIdx) in r.contacts.phones"
+                                                        :key="`phone-${pIdx}`">
+                                                        {{ phone }}
+                                                    </n-tag>
+                                                </n-space>
+                                            </template>
+                                            <n-text v-else depth="3">нет</n-text>
+                                        </n-grid-item>
+                                        <n-grid-item :span="24" :span-lg="8">
+                                            <n-text strong class="section-label">Соцсети</n-text>
+                                            <template v-if="r.contacts.socials.length">
+                                                <n-space wrap>
+                                                    <n-a v-for="(social, sIdx) in r.contacts.socials"
+                                                        :key="`social-${sIdx}`" :href="social.url" target="_blank">
+                                                        {{ social.platform }}
+                                                    </n-a>
+                                                </n-space>
+                                            </template>
+                                            <n-text v-else depth="3">нет</n-text>
+                                        </n-grid-item>
+                                    </n-grid>
 
-                        <el-row :gutter="12" style="margin-top:8px;">
-                            <el-col :span="8">
-                                <div style="margin-bottom:6px; font-weight:600;">Emails</div>
-                                <div v-if="r.contacts.emails.length">
-                                    <el-space wrap>
-                                        <el-tag v-for="(e, i) in r.contacts.emails" :key="i" type="success"
-                                            effect="light">{{ e
-                                            }}</el-tag>
-                                    </el-space>
-                                </div>
-                                <el-text v-else type="info">нет</el-text>
-                            </el-col>
-                            <el-col :span="8">
-                                <div style="margin-bottom:6px; font-weight:600;">Телефоны</div>
-                                <div v-if="r.contacts.phones.length">
-                                    <el-space wrap>
-                                        <el-tag v-for="(p, i) in r.contacts.phones" :key="i" effect="light">{{ p
-                                            }}</el-tag>
-                                    </el-space>
-                                </div>
-                                <el-text v-else type="info">нет</el-text>
-                            </el-col>
-                            <el-col :span="8">
-                                <div style="margin-bottom:6px; font-weight:600;">Соцсети</div>
-                                <div v-if="r.contacts.socials.length">
-                                    <el-space wrap>
-                                        <el-link v-for="(s, i) in r.contacts.socials" :key="i" :href="s.url"
-                                            target="_blank">{{
-                                                s.platform }}</el-link>
-                                    </el-space>
-                                </div>
-                                <el-text v-else type="info">нет</el-text>
-                            </el-col>
-                        </el-row>
+                                    <n-text v-if="r.hintsTried?.length" depth="3" class="hints-label">
+                                        Навигация пробована: {{ r.hintsTried.join(' | ') }}
+                                    </n-text>
 
-                        <el-row v-if="r.hintsTried?.length" :gutter="12" style="margin-top:8px;">
-                            <el-col :span="24">
-                                <el-text type="info">Навигация пробована: {{ r.hintsTried.join(' | ') }}</el-text>
-                            </el-col>
-                        </el-row>
-
-                        <el-collapse v-if="r.logs?.length" style="margin-top:8px;">
-                            <el-collapse-item title="Логи по элементу">
-                                <el-scrollbar height="200px">
-                                    <pre style="white-space: pre-wrap; margin:0;">{{ r.logs.join('\n') }}</pre>
-                                </el-scrollbar>
-                            </el-collapse-item>
-                        </el-collapse>
-                    </el-card>
-                </el-space>
-            </el-card>
-        </el-main>
-    </el-container>
-
+                                    <n-collapse v-if="r.logs?.length" class="item-collapse">
+                                        <n-collapse-item title="Логи по элементу">
+                                            <n-scrollbar style="max-height: 200px;">
+                                                <pre class="log-pre">{{ r.logs.join('\n') }}</pre>
+                                            </n-scrollbar>
+                                        </n-collapse-item>
+                                    </n-collapse>
+                                </n-card>
+                            </n-space>
+                        </n-card>
+                    </n-space>
+                </div>
+            </n-spin>
+        </n-layout-content>
+    </n-layout>
 </template>
 
 <script setup lang="ts">
+type SocialLink = {
+    platform: string
+    url: string
+}
+
+type Contact = {
+    emails: string[]
+    phones: string[]
+    socials: SocialLink[]
+}
+
+type LinkSummary = {
+    url: string
+    title: string
+    snippet: string
+}
+
+type SearchResultItem = {
+    link: LinkSummary
+    page: string
+    contacts: Contact
+    logs: string[]
+    hintsTried?: string[]
+}
+
+type HistoryItem = {
+    id: number
+    query: string
+    createdAt: string
+}
+
 const query = ref('Музыкальные студии Тюмень')
 const loading = ref(false)
 const error = ref('')
-const results = ref<any[]>([])
+const results = ref<SearchResultItem[]>([])
 const globalLogs = ref<string[]>([])
+const historyItems = ref<HistoryItem[]>([])
+const historySelectedId = ref<number | null>(null)
+const historyLoading = ref(false)
+const restoringHistory = ref(false)
+
+const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+})
+
+const formatHistoryDate = (value: string) => {
+    try {
+        return dateFormatter.format(new Date(value))
+    } catch {
+        return value
+    }
+}
+
+const loadHistory = async () => {
+    historyLoading.value = true
+
+    try {
+        const response = await $fetch('/api/history')
+
+        const payload = response as { items?: HistoryItem[] }
+
+        if (payload.items) {
+            historyItems.value = payload.items
+        }
+    } catch (err) {
+        console.error('history load failed', err)
+    }
+
+    historyLoading.value = false
+}
+
+const handleHistorySelect = async (id: number) => {
+    historySelectedId.value = id
+    restoringHistory.value = true
+    error.value = ''
+
+    try {
+        const response = await $fetch(`/api/history/${id}`)
+
+        const payload = response as { results: SearchResultItem[]; logs: string[]; query: string }
+
+        results.value = payload.results || []
+        globalLogs.value = payload.logs || []
+        query.value = payload.query
+    } catch (err: any) {
+        error.value = err?.statusMessage || err?.message || 'Не удалось открыть историю'
+    }
+
+    restoringHistory.value = false
+}
 
 const run = async () => {
+    if (!query.value.trim()) {
+        return
+    }
+
     error.value = ''
     results.value = []
+    globalLogs.value = []
+
     loading.value = true
 
     try {
-        const { data, error: err } = await useFetch('/api/search', {
+        const response = await $fetch('/api/search', {
             method: 'POST',
             body: { query: query.value, top: 10 },
         })
 
-        if (err.value) {
-            error.value = err.value?.statusMessage || 'Ошибка запроса'
+        const payload = response as { results?: SearchResultItem[]; logs?: string[]; historyId?: number }
+
+        if (payload.results) {
+            results.value = payload.results
         }
 
-        if (data.value) {
-            const payload = data.value as any
-            results.value = payload.results || []
-            globalLogs.value = payload.logs || []
+        if (payload.logs) {
+            globalLogs.value = payload.logs
         }
-    } catch (e: any) {
-        error.value = e?.message || 'Неизвестная ошибка'
+
+        await loadHistory()
+
+        if (payload.historyId) {
+            historySelectedId.value = payload.historyId
+        }
+    } catch (err: any) {
+        error.value = err?.statusMessage || err?.message || 'Неизвестная ошибка'
     }
 
     loading.value = false
 }
 
+onMounted(async () => {
+    await loadHistory()
+})
+
 </script>
 
-<style scoped></style>
+<style scoped>
+    .page-layout {
+        min-height: 100vh;
+    }
+
+    .button-cell {
+        display: flex;
+        align-items: flex-end;
+    }
+
+    .log-pre {
+        margin: 0;
+        white-space: pre-wrap;
+        font-size: 13px;
+        font-family: 'SFMono-Regular', Consolas, Monaco, 'Courier New', monospace;
+    }
+
+    .contacts-grid {
+        margin-top: 16px;
+    }
+
+    .item-collapse {
+        margin-top: 12px;
+    }
+
+    .sidebar {
+        padding: 24px 16px;
+        border-right: 1px solid rgba(224, 224, 230, 0.6);
+        background: #f7f8fa;
+    }
+
+    .history-wrapper {
+        height: calc(100vh - 120px);
+    }
+
+    .history-scroll {
+        height: 100%;
+    }
+
+    .history-item {
+        justify-content: flex-start;
+        text-align: left;
+        white-space: normal;
+    }
+
+    .history-item_active {
+        background-color: #e8f2ff;
+    }
+
+    .content-wrapper {
+        padding: 24px;
+    }
+
+    .section-label {
+        display: block;
+        margin-bottom: 4px;
+    }
+
+    .hints-label {
+        display: block;
+        margin-top: 8px;
+    }
+</style>

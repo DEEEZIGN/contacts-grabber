@@ -1,5 +1,6 @@
+import { saveSearchResult } from '@/server/utils/db'
 import { googleSearchHtml, fetchHtml, navigateByHints, stripHtmlAssets, googleSearch, extractAnchorCandidates, heuristicExtractContacts } from '@/server/utils/scrape'
-import { selectRelevantLinks, extractContactsFromHtml, suggestNavigationForContacts, extractLinksFromSerpHtml, selectLinksFromCandidates } from '@/server/utils/ai'
+import { selectRelevantLinks, extractContactsFromHtml, suggestNavigationForContacts, selectLinksFromCandidates } from '@/server/utils/ai'
 
 type Body = { query: string; top?: number }
 
@@ -206,7 +207,10 @@ export default defineEventHandler(async (event) => {
     }
 
     log(`Завершено. Возвращаю ${results.length} элементов.`)
-    return { query: body.query, total: results.length, results, logs: globalLogs }
+
+    const historyId = saveSearchResult(body.query, { results, logs: globalLogs })
+
+    return { query: body.query, total: results.length, results, logs: globalLogs, historyId }
 })
 
 

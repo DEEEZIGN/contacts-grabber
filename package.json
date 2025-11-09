@@ -15,9 +15,8 @@
         "lint": "eslint ."
     },
     "dependencies": {
-        "@element-plus/icons-vue": "^2.3.2",
-        "element-plus": "^2.11.7",
         "nuxt": "^3.13.2",
+        "naive-ui": "^2.39.0",
         "openai": "^4.67.1",
         "puppeteer": "^24.24.0"
     },
