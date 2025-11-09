@@ -1,29 +1,27 @@
 <template>
     <n-layout has-sider class="page-layout">
         <n-layout-sider class="sidebar" :native-scrollbar="false">
-            <n-space vertical size="medium">
-                <n-text strong>История запросов</n-text>
-                <n-spin :show="historyLoading">
-                    <div class="history-wrapper">
-                        <n-scrollbar class="history-scroll">
-                            <template v-if="historyItems.length">
-                                <n-space vertical size="small">
-                                    <n-button v-for="item in historyItems" :key="item.id" quaternary block
-                                        class="history-item"
-                                        :class="{ 'history-item_active': item.id === historySelectedId }"
-                                        @click="handleHistorySelect(item.id)">
-                                        <n-space vertical size="4">
-                                            <n-text strong>{{ item.query }}</n-text>
-                                            <n-text depth="3">{{ formatHistoryDate(item.createdAt) }}</n-text>
-                                        </n-space>
-                                    </n-button>
-                                </n-space>
-                            </template>
-                            <n-empty v-else description="История пуста" />
-                        </n-scrollbar>
-                    </div>
-                </n-spin>
-            </n-space>
+            <div class="sidebar-header">История запросов</div>
+            <n-spin :show="historyLoading">
+                <div class="history-wrapper">
+                    <n-scrollbar class="history-scroll">
+                        <template v-if="historyItems.length">
+                            <div class="history-list">
+                                <n-button v-for="item in historyItems" :key="item.id" quaternary block
+                                    class="history-item"
+                                    :class="{ 'history-item_active': item.id === historySelectedId }"
+                                    @click="handleHistorySelect(item.id)">
+                                    <div class="history-item__content">
+                                        <div class="history-item__title">{{ item.query }}</div>
+                                        <div class="history-item__date">{{ formatHistoryDate(item.createdAt) }}</div>
+                                    </div>
+                                </n-button>
+                            </div>
+                        </template>
+                        <n-empty v-else description="История пуста" />
+                    </n-scrollbar>
+                </div>
+            </n-spin>
         </n-layout-sider>
         <n-layout-content>
             <n-spin :show="loading || restoringHistory">
@@ -32,14 +30,21 @@
                         <n-card title="Поиск и парсинг контактов">
                             <n-space vertical size="medium">
                                 <n-grid :x-gap="12" :y-gap="12" :cols="24" responsive="screen">
-                                    <n-grid-item :span="24" :span-md="18">
+                                    <n-grid-item :span="24" :span-md="14">
                                         <n-space vertical size="small">
                                             <n-text strong>Запрос</n-text>
                                             <n-input v-model:value="query" placeholder="Музыкальные студии Тюмень"
                                                 clearable @keydown.enter="run" />
                                         </n-space>
                                     </n-grid-item>
-                                    <n-grid-item :span="24" :span-md="6" class="button-cell">
+                                    <n-grid-item :span="24" :span-md="6">
+                                        <n-space vertical size="small">
+                                            <n-text strong>Страниц поиска</n-text>
+                                            <n-input-number v-model:value="pagesCount" :min="1" :max="10" :step="1"
+                                                button-placement="both" />
+                                        </n-space>
+                                    </n-grid-item>
+                                    <n-grid-item :span="24" :span-md="4" class="button-cell">
                                         <n-button type="primary" size="large" :loading="loading" block @click="run">
                                             {{ loading ? 'Идет поиск...' : 'Старт' }}
                                         </n-button>
@@ -164,6 +169,7 @@ const loading = ref(false)
 const error = ref('')
 const results = ref<SearchResultItem[]>([])
 const globalLogs = ref<string[]>([])
+const pagesCount = ref(3)
 const historyItems = ref<HistoryItem[]>([])
 const historySelectedId = ref<number | null>(null)
 const historyLoading = ref(false)
@@ -190,11 +196,10 @@ const loadHistory = async () => {
 
         const payload = response as { items?: HistoryItem[] }
 
-        if (payload.items) {
-            historyItems.value = payload.items
-        }
+        historyItems.value = payload.items ?? []
     } catch (err) {
         console.error('history load failed', err)
+        historyItems.value = []
     }
 
     historyLoading.value = false
@@ -234,7 +239,7 @@ const run = async () => {
     try {
         const response = await $fetch('/api/search', {
             method: 'POST',
-            body: { query: query.value, top: 10 },
+            body: { query: query.value, top: 10, pages: pagesCount.value },
         })
 
         const payload = response as { results?: SearchResultItem[]; logs?: string[]; historyId?: number }
@@ -296,12 +301,24 @@ onMounted(async () => {
         background: #f7f8fa;
     }
 
+    .sidebar-header {
+        font-weight: 600;
+        font-size: 16px;
+        margin-bottom: 16px;
+    }
+
     .history-wrapper {
         height: calc(100vh - 120px);
     }
 
     .history-scroll {
         height: 100%;
+    }
+
+    .history-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
     }
 
     .history-item {
@@ -312,6 +329,23 @@ onMounted(async () => {
 
     .history-item_active {
         background-color: #e8f2ff;
+    }
+
+    .history-item__content {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        width: 100%;
+    }
+
+    .history-item__title {
+        font-weight: 600;
+        line-height: 1.3;
+    }
+
+    .history-item__date {
+        font-size: 12px;
+        color: #909399;
     }
 
     .content-wrapper {

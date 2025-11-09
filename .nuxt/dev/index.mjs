@@ -1130,7 +1130,22 @@ const plugins = [
   _QWNF8eIQpiTtHqsf0RYCV8pPYckwhIwlL5RYC2TJ_Y
 ];
 
-const assets = {};
+const assets = {
+  "/index.mjs": {
+    "type": "text/javascript; charset=utf-8",
+    "etag": "\"19885-OSu+xCxiLveeuZHrXkPNYrxOUoE\"",
+    "mtime": "2025-11-09T19:59:38.064Z",
+    "size": 104581,
+    "path": "index.mjs"
+  },
+  "/index.mjs.map": {
+    "type": "application/json",
+    "etag": "\"6290f-8L7oU08nJk83W/l8UQPLozPlxLA\"",
+    "mtime": "2025-11-09T19:59:38.064Z",
+    "size": 403727,
+    "path": "index.mjs.map"
+  }
+};
 
 function readAsset (id) {
   const serverDir = dirname$1(fileURLToPath(globalThis._importMeta_.url));
@@ -1639,6 +1654,132 @@ const _id__get$1 = /*#__PURE__*/Object.freeze({
   default: _id__get
 });
 
+let sharedBrowser = null;
+let activeBrowserKey = null;
+const configToKey = (config) => `${config.headless ? "h1" : "h0"}|${config.slowMo}|${config.devtools ? "d1" : "d0"}`;
+async function getBrowser(config) {
+  const key = configToKey(config);
+  if (sharedBrowser && sharedBrowser.isConnected() && activeBrowserKey === key) {
+    return sharedBrowser;
+  }
+  if (sharedBrowser) {
+    try {
+      await sharedBrowser.close();
+    } catch {
+    }
+    sharedBrowser = null;
+  }
+  sharedBrowser = await puppeteer.launch({
+    headless: config.headless,
+    slowMo: config.slowMo,
+    devtools: config.devtools,
+    dumpio: true,
+    executablePath: puppeteer.executablePath(),
+    ignoreDefaultArgs: ["--enable-external-memory-accounted-in-global-limit"],
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--lang=ru-RU,ru",
+      "--disable-blink-features=AutomationControlled",
+      "--window-size=1366,768"
+    ]
+  });
+  activeBrowserKey = key;
+  return sharedBrowser;
+}
+async function preparePage(page, userAgent) {
+  if (userAgent) {
+    await page.setUserAgent(userAgent);
+  }
+  await page.setViewport({ width: 1366, height: 768 });
+  page.setDefaultNavigationTimeout(9e4);
+  page.setDefaultTimeout(6e4);
+}
+async function tryAcceptCookies(page) {
+  try {
+    const button = await page.waitForSelector(
+      'button[aria-label="\u041F\u0440\u0438\u043D\u044F\u0442\u044C \u0432\u0441\u0435"], #L2AGLb, form [role="none"] button',
+      { timeout: 4e3 }
+    );
+    if (button) {
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: "networkidle2", timeout: 15e3 }).catch(() => void 0),
+        button.click()
+      ]);
+    }
+  } catch {
+  }
+}
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+async function googleSearchHtmlPages(query, pages = 1, userAgent, config) {
+  const browser = await getBrowser(config);
+  const page = await browser.newPage();
+  await preparePage(page, userAgent);
+  const q = encodeURIComponent(query);
+  await page.goto(`https://www.google.com/search?q=${q}&hl=ru`, { waitUntil: "networkidle2", timeout: 6e4 });
+  await tryAcceptCookies(page);
+  const collected = [];
+  for (let current = 1; current <= pages; current += 1) {
+    await delay(500);
+    const html = await page.content();
+    collected.push({ page: current, html, url: page.url() });
+    if (current === pages) {
+      break;
+    }
+    const nextSelector = 'a#pnnext, a[aria-label="\u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0430\u044F \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0430"], a[aria-label="Next"], a[aria-label="Next page"]';
+    const nextHandle = await page.$(nextSelector);
+    if (!nextHandle) {
+      break;
+    }
+    const navigation = page.waitForNavigation({ waitUntil: "networkidle2", timeout: 6e4 }).catch(() => null);
+    await nextHandle.click();
+    const navigated = await navigation;
+    if (!navigated) {
+      break;
+    }
+  }
+  return collected;
+}
+async function fetchHtmlPage(url, userAgent, config) {
+  const browser = await getBrowser(config);
+  const page = await browser.newPage();
+  await preparePage(page, userAgent);
+  let response = null;
+  response = await page.goto(url, { waitUntil: "networkidle2", timeout: 9e4 });
+  const html = await page.content();
+  const finalUrl = page.url();
+  const status = response ? response.status() : null;
+  return { page, html, status, finalUrl };
+}
+async function navigatePageByHints(page, hints) {
+  for (const hint of hints) {
+    const lowered = hint.toLowerCase();
+    const clicked = await page.evaluate((needle) => {
+      const anchors = Array.from(document.querySelectorAll("a"));
+      const candidates = anchors.filter((a) => {
+        const text = (a.textContent || "").trim().toLowerCase();
+        const href = (a.getAttribute("href") || "").toLowerCase();
+        return text.includes(needle) || href.includes("contact") || href.includes("kontact") || href.includes("contacts") || href.includes("\u043A\u043E\u043D\u0442\u0430\u043A\u0442");
+      });
+      if (candidates[0]) {
+        candidates[0].click();
+        return true;
+      }
+      return false;
+    }, lowered);
+    if (clicked) {
+      try {
+        await page.waitForNavigation({ waitUntil: "networkidle2", timeout: 45e3 });
+      } catch {
+      }
+      break;
+    }
+  }
+  const html = await page.content();
+  return { html, url: page.url() };
+}
 function stripHtmlAssets(html) {
   try {
     return html.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<noscript[\s\S]*?<\/noscript>/gi, "").replace(/<!--([\s\S]*?)-->/g, "").replace(/\s{2,}/g, " ");
@@ -1649,7 +1790,9 @@ function stripHtmlAssets(html) {
 function normalizeUrl(href, base) {
   try {
     const abs = new URL(href, base).href;
-    if (!/^https?:\/\//i.test(abs)) return null;
+    if (!/^https?:\/\//i.test(abs)) {
+      return null;
+    }
     const bad = [
       "google.com/preferences",
       "/preferences",
@@ -1663,7 +1806,9 @@ function normalizeUrl(href, base) {
       "support.google.",
       "policies.google."
     ];
-    if (bad.some((b) => abs.includes(b))) return null;
+    if (bad.some((b) => abs.includes(b))) {
+      return null;
+    }
     return abs;
   } catch {
     return null;
@@ -1672,55 +1817,73 @@ function normalizeUrl(href, base) {
 function extractAnchorCandidates(html, baseUrl, max = 100) {
   const out = [];
   const re = /<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
-  let m;
-  while ((m = re.exec(html)) && out.length < max) {
-    const href = m[1];
-    const inner = m[2] || "";
+  let match;
+  while ((match = re.exec(html)) && out.length < max) {
+    const href = match[1];
+    const inner = match[2] || "";
     const text = inner.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     const abs = normalizeUrl(href, baseUrl);
-    if (!abs) continue;
-    if (!text) continue;
+    if (!abs || !text) {
+      continue;
+    }
     out.push({ url: abs, title: text.slice(0, 180) });
   }
   const seen = /* @__PURE__ */ new Set();
-  return out.filter((c) => seen.has(c.url) ? false : (seen.add(c.url), true));
+  return out.filter((candidate) => {
+    if (seen.has(candidate.url)) {
+      return false;
+    }
+    seen.add(candidate.url);
+    return true;
+  });
 }
-function heuristicExtractContacts(html, baseUrl) {
+function heuristicExtractContacts(html, _baseUrl) {
   const emailsSet = /* @__PURE__ */ new Set();
   const normalizedPhoneToDisplay = /* @__PURE__ */ new Map();
   const socialsSet = /* @__PURE__ */ new Map();
   const emailRe = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
-  let m;
-  while (m = emailRe.exec(html)) {
-    emailsSet.add(m[0]);
+  let match;
+  while (match = emailRe.exec(html)) {
+    emailsSet.add(match[0]);
   }
-  const normalizePhone = (s) => {
-    const plus = s.trim().startsWith("+");
-    const digits = s.replace(/[^0-9]/g, "");
+  const normalizePhone = (value) => {
+    const plus = value.trim().startsWith("+");
+    const digits = value.replace(/[^0-9]/g, "");
     return plus ? `+${digits}` : digits;
   };
   const looksLikePhone = (display) => {
-    const hasDot = display.includes(".");
-    if (hasDot) return false;
-    if (/\d{4}-\d{2}-\d{2}/.test(display)) return false;
-    if (/\b(\d{4}-){3}\d{3,4}\b/.test(display)) return false;
-    const norm = normalizePhone(display);
-    const digitsOnly = norm.startsWith("+") ? norm.slice(1) : norm;
-    const len = digitsOnly.length;
-    if (len < 10 || len > 15) return false;
-    if (!norm.startsWith("+") && !/^7|8/.test(digitsOnly)) return false;
+    if (display.includes(".")) {
+      return false;
+    }
+    if (/\d{4}-\d{2}-\d{2}/.test(display)) {
+      return false;
+    }
+    if (/\b(\d{4}-){3}\d{3,4}\b/.test(display)) {
+      return false;
+    }
+    const normalized = normalizePhone(display);
+    const digitsOnly = normalized.startsWith("+") ? normalized.slice(1) : normalized;
+    const length = digitsOnly.length;
+    if (length < 10 || length > 15) {
+      return false;
+    }
+    if (!normalized.startsWith("+") && !/^7|8/.test(digitsOnly)) {
+      return false;
+    }
     return true;
   };
   const storePhone = (display) => {
-    if (!looksLikePhone(display)) return;
-    const norm = normalizePhone(display);
-    if (!normalizedPhoneToDisplay.has(norm)) {
-      normalizedPhoneToDisplay.set(norm, display);
+    if (!looksLikePhone(display)) {
+      return;
+    }
+    const normalized = normalizePhone(display);
+    if (!normalizedPhoneToDisplay.has(normalized)) {
+      normalizedPhoneToDisplay.set(normalized, display);
     }
   };
   const telHrefRe = /<a\s+[^>]*href=["']tel:([^"']+)["'][^>]*>/gi;
-  while (m = telHrefRe.exec(html)) {
-    const raw = m[1].trim().replace(/^\+/, "+");
+  while (match = telHrefRe.exec(html)) {
+    const raw = match[1].trim().replace(/^\+/, "+");
     storePhone(raw);
   }
   const socialPatterns = [
@@ -1731,159 +1894,18 @@ function heuristicExtractContacts(html, baseUrl) {
     { platform: "facebook", test: /https?:\/\/(?:www\.)?facebook\.com\/[A-Za-z0-9_./-]+/gi }
   ];
   for (const { platform, test } of socialPatterns) {
-    let mm;
-    while (mm = test.exec(html)) {
-      socialsSet.set(mm[0], platform);
+    let socialMatch;
+    while (socialMatch = test.exec(html)) {
+      socialsSet.set(socialMatch[0], platform);
     }
   }
   const socials = Array.from(socialsSet.entries()).map(([url, platform]) => ({ platform, url }));
   const phones = Array.from(normalizedPhoneToDisplay.values());
-  return { emails: Array.from(emailsSet), phones, socials };
-}
-async function launchBrowser() {
-  const { PUPPETEER_HEADLESS, PUPPETEER_SLOWMO, PUPPETEER_DEVTOOLS } = useRuntimeConfig();
-  const headless = String(PUPPETEER_HEADLESS).toLowerCase() !== "false";
-  const slowMo = Number(PUPPETEER_SLOWMO) || 0;
-  const devtools = String(PUPPETEER_DEVTOOLS).toLowerCase() === "true";
-  const browser = await puppeteer.launch({
-    headless,
-    slowMo,
-    devtools,
-    dumpio: true,
-    executablePath: puppeteer.executablePath(),
-    ignoreDefaultArgs: ["--enable-external-memory-accounted-in-global-limit"],
-    protocolTimeout: 6e4,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-      "--lang=ru-RU,ru",
-      "--disable-blink-features=AutomationControlled",
-      "--window-size=1366,768"
-    ]
-  });
-  return browser;
-}
-async function googleSearch(query, limit = 10, userAgent) {
-  const browser = await launchBrowser();
-  const page = await browser.newPage();
-  try {
-    if (userAgent) await page.setUserAgent(userAgent);
-    await page.setViewport({ width: 1366, height: 768 });
-    page.setDefaultNavigationTimeout(6e4);
-    page.setDefaultTimeout(3e4);
-    const q = encodeURIComponent(query);
-    await page.goto(`https://www.google.com/search?q=${q}&hl=ru`, { waitUntil: "networkidle2", timeout: 6e4 });
-    try {
-      await page.waitForSelector('button[aria-label="\u041F\u0440\u0438\u043D\u044F\u0442\u044C \u0432\u0441\u0435"], form [role="none"] button, #L2AGLb', { timeout: 4e3 });
-      const accepted = await page.evaluate(() => {
-        const sel = document.querySelector('button[aria-label="\u041F\u0440\u0438\u043D\u044F\u0442\u044C \u0432\u0441\u0435"]') || document.querySelector("#L2AGLb") || document.querySelector('form [role="none"] button');
-        if (sel instanceof HTMLElement) {
-          sel.click();
-          return true;
-        }
-        return false;
-      });
-      if (accepted) {
-        try {
-          await page.waitForNavigation({ waitUntil: "networkidle2", timeout: 1e4 });
-        } catch {
-        }
-      }
-    } catch {
-    }
-    await page.waitForSelector("a h3, div.g", { timeout: 3e4 });
-    const results = await page.evaluate((max) => {
-      const items = [];
-      const blocks = document.querySelectorAll("div.g");
-      for (const block of Array.from(blocks)) {
-        const a = block.querySelector("a");
-        const h3 = block.querySelector("h3");
-        const desc = block.querySelector('div[style="-webkit-line-clamp:2"]');
-        if (a && h3 && a.href.startsWith("http")) {
-          items.push({ url: a.href, title: h3.textContent || "", snippet: (desc == null ? void 0 : desc.textContent) || "" });
-        }
-        if (items.length >= max) break;
-      }
-      return items;
-    }, limit);
-    return results;
-  } finally {
-    await browser.close();
-  }
-}
-async function googleSearchHtml(query, userAgent) {
-  const browser = await launchBrowser();
-  const page = await browser.newPage();
-  try {
-    if (userAgent) await page.setUserAgent(userAgent);
-    await page.setViewport({ width: 1366, height: 768 });
-    page.setDefaultNavigationTimeout(6e4);
-    const q = encodeURIComponent(query);
-    await page.goto(`https://www.google.com/search?q=${q}&hl=ru`, { waitUntil: "networkidle2", timeout: 6e4 });
-    try {
-      await page.waitForSelector("body", { timeout: 1e4 });
-    } catch {
-    }
-    const html = await page.content();
-    return { html, url: page.url() };
-  } finally {
-    await browser.close();
-  }
-}
-async function fetchHtml(url, userAgent) {
-  const browser = await launchBrowser();
-  const page = await browser.newPage();
-  let response = null;
-  try {
-    if (userAgent) await page.setUserAgent(userAgent);
-    page.setDefaultNavigationTimeout(9e4);
-    page.setDefaultTimeout(45e3);
-    response = await page.goto(url, { waitUntil: "networkidle2", timeout: 9e4 });
-    const html = await page.content();
-    const finalUrl = page.url();
-    const status = response ? response.status() : null;
-    return { html, status, finalUrl };
-  } finally {
-    await browser.close();
-  }
-}
-async function navigateByHints(url, hints, userAgent) {
-  const browser = await launchBrowser();
-  const page = await browser.newPage();
-  try {
-    if (userAgent) await page.setUserAgent(userAgent);
-    page.setDefaultNavigationTimeout(9e4);
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 9e4 });
-    for (const hint of hints) {
-      const lowered = hint.toLowerCase();
-      const clicked = await page.evaluate((h) => {
-        const anchors = Array.from(document.querySelectorAll("a"));
-        const candidates = anchors.filter((a) => {
-          const text = (a.textContent || "").trim().toLowerCase();
-          const href = (a.getAttribute("href") || "").toLowerCase();
-          return text.includes(h) || href.includes("contact") || href.includes("kontact") || href.includes("contacts") || href.includes("\u043A\u043E\u043D\u0442\u0430\u043A\u0442");
-        });
-        if (candidates[0]) {
-          candidates[0].click();
-          return true;
-        }
-        return false;
-      }, lowered);
-      if (clicked) {
-        try {
-          await page.waitForNavigation({ waitUntil: "networkidle2", timeout: 3e4 });
-        } catch {
-        }
-        break;
-      }
-    }
-    const html = await page.content();
-    return { html, url: page.url() };
-  } finally {
-    await browser.close();
-  }
+  return {
+    emails: Array.from(emailsSet),
+    phones,
+    socials
+  };
 }
 
 function getClient() {
@@ -2010,42 +2032,52 @@ const search_post = defineEventHandler(async (event) => {
   if (!(body == null ? void 0 : body.query) || typeof body.query !== "string") {
     throw createError({ statusCode: 400, statusMessage: "query is required" });
   }
-  const { GOOGLE_SEARCH_UA } = useRuntimeConfig();
+  const runtimeConfig = useRuntimeConfig();
+  const { GOOGLE_SEARCH_UA } = runtimeConfig;
   const limit = body.top && body.top > 0 ? Math.min(15, body.top) : 10;
+  const pagesCount = body.pages && body.pages > 0 ? Math.min(10, body.pages) : 3;
+  const browserConfig = {
+    headless: String(runtimeConfig.PUPPETEER_HEADLESS).toLowerCase() !== "false",
+    slowMo: Number(runtimeConfig.PUPPETEER_SLOWMO) || 0,
+    devtools: String(runtimeConfig.PUPPETEER_DEVTOOLS).toLowerCase() === "true"
+  };
   const globalLogs = [];
   const log = (msg) => {
     const line = `[${(/* @__PURE__ */ new Date()).toISOString()}] ${msg}`;
     globalLogs.push(line);
     console.log(line);
   };
-  log(`\u0421\u0442\u0430\u0440\u0442 \u0437\u0430\u043F\u0440\u043E\u0441\u0430: "${body.query}" (top=${limit})`);
-  log("\u0428\u0430\u0433 1: \u041F\u043E\u0438\u0441\u043A Google... (\u043F\u043E\u043B\u0443\u0447\u0430\u044E HTML)");
-  const serpHtml = await googleSearchHtml(body.query, GOOGLE_SEARCH_UA);
-  const serpReduced = stripHtmlAssets(serpHtml.html);
-  log("\u0428\u0430\u0433 2: \u0418\u0437\u0432\u043B\u0435\u0447\u0435\u043D\u0438\u0435 \u0441\u0441\u044B\u043B\u043E\u043A \u0438\u0437 HTML... (\u043A\u0430\u043D\u0434\u0438\u0434\u0430\u0442\u044B)");
-  const candidates = extractAnchorCandidates(serpReduced, serpHtml.url, 120);
-  log(`\u041A\u0430\u043D\u0434\u0438\u0434\u0430\u0442\u043E\u0432 \u0441\u0441\u044B\u043B\u043E\u043A: ${candidates.length}`);
+  log(`\u0421\u0442\u0430\u0440\u0442 \u0437\u0430\u043F\u0440\u043E\u0441\u0430: "${body.query}" (top=${limit}, pages=${pagesCount})`);
+  log("\u0428\u0430\u0433 1: \u041F\u043E\u0438\u0441\u043A Google... (\u043F\u043E\u043B\u0443\u0447\u0430\u044E HTML \u0441 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u0438\u0445 \u0441\u0442\u0440\u0430\u043D\u0438\u0446)");
+  const serpPages = await googleSearchHtmlPages(body.query, pagesCount, GOOGLE_SEARCH_UA, browserConfig);
+  const candidates = [];
+  const seenLinks = /* @__PURE__ */ new Set();
+  serpPages.forEach((page, index) => {
+    const reduced = stripHtmlAssets(page.html);
+    const localCandidates = extractAnchorCandidates(reduced, page.url, 150);
+    log(`\u0421\u0442\u0440\u0430\u043D\u0438\u0446\u0430 ${index + 1}: \u043A\u0430\u043D\u0434\u0438\u0434\u0430\u0442\u043E\u0432 \u0441\u0441\u044B\u043B\u043E\u043A ${localCandidates.length}`);
+    for (const candidate of localCandidates) {
+      if (seenLinks.has(candidate.url)) {
+        continue;
+      }
+      seenLinks.add(candidate.url);
+      candidates.push(candidate);
+    }
+  });
+  log(`\u0412\u0441\u0435\u0433\u043E \u0443\u043D\u0438\u043A\u0430\u043B\u044C\u043D\u044B\u0445 \u043A\u0430\u043D\u0434\u0438\u0434\u0430\u0442\u043E\u0432: ${candidates.length}`);
   log("\u0428\u0430\u0433 2a: \u041E\u0442\u0431\u043E\u0440 \u043A\u0430\u043D\u0434\u0438\u0434\u0430\u0442\u043E\u0432 \u0447\u0435\u0440\u0435\u0437 \u0418\u0418 ...");
   const candidatesForAi = candidates.map((c) => ({ url: c.url, title: c.title, snippet: "" }));
   const aiLinks = await selectLinksFromCandidates(body.query, candidatesForAi, 15);
-  const toAbsolute = (u) => {
-    try {
-      return new URL(u, serpHtml.url).href;
-    } catch {
-      return u;
-    }
-  };
-  let serp = aiLinks.map((l) => ({ ...l, url: toAbsolute(l.url) })).filter((l) => /^https?:\/\//i.test(l.url)).slice(0, limit);
+  let serp = aiLinks.map((l) => ({ ...l })).filter((l) => /^https?:\/\//i.test(l.url)).slice(0, limit);
   log(`\u0428\u0430\u0433 2: \u0418\u0418 \u0432\u044B\u0434\u0435\u043B\u0438\u043B \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442\u043E\u0432: ${serp.length}`);
   if (!serp.length) {
-    log("\u0428\u0430\u0433 2b: \u041F\u0443\u0441\u0442\u043E. \u0424\u043E\u043B\u043B\u0431\u0435\u043A \u0438\u0437\u0432\u043B\u0435\u0447\u0435\u043D\u0438\u044F \u043F\u043E DOM (\u043E\u0433\u0440\u0430\u043D\u0438\u0447\u0435\u043D\u043D\u043E)...");
-    try {
-      const serpFallback = await googleSearch(body.query, limit, GOOGLE_SEARCH_UA);
-      serp = serpFallback;
-      log(`\u0424\u043E\u043B\u043B\u0431\u0435\u043A \u0434\u0430\u043B \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442\u043E\u0432: ${serp.length}`);
-    } catch (e) {
-      log(`\u0424\u043E\u043B\u043B\u0431\u0435\u043A \u043D\u0435 \u0443\u0434\u0430\u043B\u0441\u044F: ${(e == null ? void 0 : e.message) || e}`);
-    }
+    log("\u0428\u0430\u0433 2b: \u041F\u0443\u0441\u0442\u043E. \u0424\u043E\u043B\u043B\u0431\u0435\u043A \u2014 \u0431\u0435\u0440\u0451\u043C \u043F\u0435\u0440\u0432\u044B\u0435 \u0441\u0441\u044B\u043B\u043A\u0438 \u0432\u0440\u0443\u0447\u043D\u0443\u044E.");
+    serp = candidates.slice(0, limit).map((c) => ({
+      url: c.url,
+      title: c.title,
+      snippet: ""
+    }));
+    log(`\u0424\u043E\u043B\u043B\u0431\u0435\u043A \u0434\u0430\u043B \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442\u043E\u0432: ${serp.length}`);
   }
   log("\u0428\u0430\u0433 3: \u0424\u0438\u043D\u0430\u043B\u044C\u043D\u0430\u044F \u0444\u0438\u043B\u044C\u0442\u0440\u0430\u0446\u0438\u044F \u0441\u0441\u044B\u043B\u043E\u043A \u0447\u0435\u0440\u0435\u0437 \u0418\u0418...");
   const filtered = await selectRelevantLinks(body.query, serp);
@@ -2070,7 +2102,6 @@ const search_post = defineEventHandler(async (event) => {
   };
   const relevant = filtered.filter((i) => i.relevant).filter((i) => !isAggregator(i.url));
   log(`\u0424\u0438\u043B\u044C\u0442\u0440 \u0430\u0433\u0440\u0435\u0433\u0430\u0442\u043E\u0440\u043E\u0432: \u043E\u0441\u0442\u0430\u043B\u043E\u0441\u044C ${relevant.length}`);
-  const results = [];
   const cleanPhones = (phones) => {
     const out = /* @__PURE__ */ new Set();
     const isOk = (p) => {
@@ -2144,61 +2175,90 @@ const search_post = defineEventHandler(async (event) => {
     }
     return Array.from(perPlatform.values());
   };
-  for (const link of relevant) {
+  const runWithConcurrency = async (items, limit2, worker) => {
+    if (!items.length) {
+      return [];
+    }
+    const results2 = new Array(items.length).fill(null);
+    let pointer = 0;
+    const makeWorker = async () => {
+      while (true) {
+        const current = pointer;
+        pointer += 1;
+        if (current >= items.length) {
+          break;
+        }
+        results2[current] = await worker(items[current], current);
+      }
+    };
+    const workers = Array.from({ length: Math.min(limit2, items.length) }, () => makeWorker());
+    await Promise.all(workers);
+    return results2.filter((value) => value !== null);
+  };
+  const concurrency = 3;
+  log(`\u0428\u0430\u0433 4: \u043E\u0431\u0440\u0430\u0431\u043E\u0442\u043A\u0430 ${relevant.length} \u0441\u0441\u044B\u043B\u043E\u043A (\u043F\u0430\u0440\u0430\u043B\u043B\u0435\u043B\u044C\u043D\u043E \u0434\u043E ${concurrency}).`);
+  const processLink = async (link) => {
     const itemLogs = [];
     const ilog = (m) => {
       const line = `[${(/* @__PURE__ */ new Date()).toISOString()}] [${link.url}] ${m}`;
       itemLogs.push(line);
       console.log(line);
     };
-    ilog("\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u0433\u043B\u0430\u0432\u043D\u043E\u0439 \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u044B...");
-    const html1 = await fetchHtml(link.url, GOOGLE_SEARCH_UA);
-    ilog(`\u0421\u0442\u0440\u0430\u043D\u0438\u0446\u0430 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u0430: ${html1.finalUrl} (status=${html1.status})`);
-    const stripped1 = stripHtmlAssets(html1.html);
-    const extraction1 = await extractContactsFromHtml(stripped1, html1.finalUrl);
-    const heur1 = heuristicExtractContacts(stripped1, html1.finalUrl);
-    const socialPairs1 = /* @__PURE__ */ new Map();
-    for (const s of extraction1.socials || []) {
-      if (s == null ? void 0 : s.url) socialPairs1.set(s.url, s.platform || "");
+    let pageRef = null;
+    try {
+      ilog("\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u0433\u043B\u0430\u0432\u043D\u043E\u0439 \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u044B...");
+      const main = await fetchHtmlPage(link.url, GOOGLE_SEARCH_UA, browserConfig);
+      pageRef = main.page;
+      ilog(`\u0421\u0442\u0440\u0430\u043D\u0438\u0446\u0430 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u0430: ${main.finalUrl} (status=${main.status})`);
+      const stripped1 = stripHtmlAssets(main.html);
+      const extraction1 = await extractContactsFromHtml(stripped1, main.finalUrl);
+      const heur1 = heuristicExtractContacts(stripped1, main.finalUrl);
+      const socialPairs1 = /* @__PURE__ */ new Map();
+      for (const s of extraction1.socials || []) {
+        if (s == null ? void 0 : s.url) socialPairs1.set(s.url, s.platform || "");
+      }
+      for (const s of heur1.socials) {
+        if (s == null ? void 0 : s.url) socialPairs1.set(s.url, s.platform || "");
+      }
+      const merged1 = {
+        emails: Array.from(/* @__PURE__ */ new Set([...extraction1.emails || [], ...heur1.emails])),
+        phones: cleanPhones([...extraction1.phones || [], ...heur1.phones]),
+        socials: cleanSocials(Array.from(socialPairs1.entries()).map(([url, platform]) => ({ url, platform }))),
+        contactPageHints: extraction1.contactPageHints || []
+      };
+      ilog(`\u041F\u0435\u0440\u0432\u0438\u0447\u043D\u0430\u044F \u0432\u044B\u0436\u0438\u043C\u043A\u0430: emails=${merged1.emails.length}, phones=${merged1.phones.length}, socials=${merged1.socials.length}`);
+      if (merged1.emails.length || merged1.phones.length || merged1.socials.length) {
+        ilog("\u041A\u043E\u043D\u0442\u0430\u043A\u0442\u044B \u043D\u0430\u0439\u0434\u0435\u043D\u044B \u043D\u0430 \u0433\u043B\u0430\u0432\u043D\u043E\u0439, \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442");
+        return { link, page: main.finalUrl, contacts: merged1, logs: itemLogs };
+      }
+      const hints = extraction1.contactPageHints.length ? extraction1.contactPageHints : await suggestNavigationForContacts(main.html, main.finalUrl);
+      ilog(`\u041F\u0435\u0440\u0435\u0445\u043E\u0434 \u043F\u043E \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0430\u043C (${hints.length}) \u0434\u043B\u044F \u043F\u043E\u0438\u0441\u043A\u0430 \u043A\u043E\u043D\u0442\u0430\u043A\u0442\u043E\u0432...`);
+      const navigated = await navigatePageByHints(pageRef, hints);
+      ilog(`\u041E\u0442\u043A\u0440\u044B\u0442\u0430 \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0430: ${navigated.url}`);
+      const stripped2 = stripHtmlAssets(navigated.html);
+      const extraction2 = await extractContactsFromHtml(stripped2, navigated.url);
+      const heur2 = heuristicExtractContacts(stripped2, navigated.url);
+      const socialPairs2 = /* @__PURE__ */ new Map();
+      for (const s of extraction2.socials || []) {
+        if (s == null ? void 0 : s.url) socialPairs2.set(s.url, s.platform || "");
+      }
+      for (const s of heur2.socials) {
+        if (s == null ? void 0 : s.url) socialPairs2.set(s.url, s.platform || "");
+      }
+      const merged2 = {
+        emails: Array.from(/* @__PURE__ */ new Set([...extraction2.emails || [], ...heur2.emails])),
+        phones: cleanPhones([...extraction2.phones || [], ...heur2.phones]),
+        socials: cleanSocials(Array.from(socialPairs2.entries()).map(([url, platform]) => ({ url, platform }))),
+        contactPageHints: extraction2.contactPageHints || []
+      };
+      ilog(`\u041F\u043E\u0432\u0442\u043E\u0440\u043D\u0430\u044F \u0432\u044B\u0436\u0438\u043C\u043A\u0430: emails=${merged2.emails.length}, phones=${merged2.phones.length}, socials=${merged2.socials.length}`);
+      return { link, page: navigated.url, contacts: merged2, hintsTried: hints, logs: itemLogs };
+    } catch (error) {
+      ilog(`\u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043E\u0431\u0440\u0430\u0431\u043E\u0442\u043A\u0435: ${(error == null ? void 0 : error.message) || error}`);
+      return { link, page: link.url, contacts: { emails: [], phones: [], socials: [], contactPageHints: [] }, logs: itemLogs, error: true };
     }
-    for (const s of heur1.socials) {
-      if (s == null ? void 0 : s.url) socialPairs1.set(s.url, s.platform || "");
-    }
-    const merged1 = {
-      emails: Array.from(/* @__PURE__ */ new Set([...extraction1.emails || [], ...heur1.emails])),
-      phones: cleanPhones([...extraction1.phones || [], ...heur1.phones]),
-      socials: cleanSocials(Array.from(socialPairs1.entries()).map(([url, platform]) => ({ url, platform }))),
-      contactPageHints: extraction1.contactPageHints || []
-    };
-    ilog(`\u041F\u0435\u0440\u0432\u0438\u0447\u043D\u0430\u044F \u0432\u044B\u0436\u0438\u043C\u043A\u0430: emails=${merged1.emails.length}, phones=${merged1.phones.length}, socials=${merged1.socials.length}`);
-    if (merged1.emails.length || merged1.phones.length || merged1.socials.length) {
-      ilog("\u041A\u043E\u043D\u0442\u0430\u043A\u0442\u044B \u043D\u0430\u0439\u0434\u0435\u043D\u044B \u043D\u0430 \u0433\u043B\u0430\u0432\u043D\u043E\u0439, \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442");
-      results.push({ link, page: html1.finalUrl, contacts: merged1, logs: itemLogs });
-      continue;
-    }
-    const hints = extraction1.contactPageHints.length ? extraction1.contactPageHints : await suggestNavigationForContacts(html1.html, html1.finalUrl);
-    ilog(`\u041F\u0435\u0440\u0435\u0445\u043E\u0434 \u043F\u043E \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0430\u043C (${hints.length}) \u0434\u043B\u044F \u043F\u043E\u0438\u0441\u043A\u0430 \u043A\u043E\u043D\u0442\u0430\u043A\u0442\u043E\u0432...`);
-    const navigated = await navigateByHints(html1.finalUrl, hints, GOOGLE_SEARCH_UA);
-    ilog(`\u041E\u0442\u043A\u0440\u044B\u0442\u0430 \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0430: ${navigated.url}`);
-    const stripped2 = stripHtmlAssets(navigated.html);
-    const extraction2 = await extractContactsFromHtml(stripped2, navigated.url);
-    const heur2 = heuristicExtractContacts(stripped2, navigated.url);
-    const socialPairs2 = /* @__PURE__ */ new Map();
-    for (const s of extraction2.socials || []) {
-      if (s == null ? void 0 : s.url) socialPairs2.set(s.url, s.platform || "");
-    }
-    for (const s of heur2.socials) {
-      if (s == null ? void 0 : s.url) socialPairs2.set(s.url, s.platform || "");
-    }
-    const merged2 = {
-      emails: Array.from(/* @__PURE__ */ new Set([...extraction2.emails || [], ...heur2.emails])),
-      phones: cleanPhones([...extraction2.phones || [], ...heur2.phones]),
-      socials: cleanSocials(Array.from(socialPairs2.entries()).map(([url, platform]) => ({ url, platform }))),
-      contactPageHints: extraction2.contactPageHints || []
-    };
-    ilog(`\u041F\u043E\u0432\u0442\u043E\u0440\u043D\u0430\u044F \u0432\u044B\u0436\u0438\u043C\u043A\u0430: emails=${merged2.emails.length}, phones=${merged2.phones.length}, socials=${merged2.socials.length}`);
-    results.push({ link, page: navigated.url, contacts: merged2, hintsTried: hints, logs: itemLogs });
-  }
+  };
+  const results = await runWithConcurrency(relevant, concurrency, processLink);
   log(`\u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u043E. \u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u044E ${results.length} \u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u0432.`);
   const historyId = saveSearchResult(body.query, { results, logs: globalLogs });
   return { query: body.query, total: results.length, results, logs: globalLogs, historyId };

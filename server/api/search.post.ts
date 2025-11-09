@@ -1,16 +1,23 @@
 import { saveSearchResult } from '@/server/utils/db'
-import { googleSearchHtml, fetchHtml, navigateByHints, stripHtmlAssets, googleSearch, extractAnchorCandidates, heuristicExtractContacts } from '@/server/utils/scrape'
+import { googleSearchHtmlPages, fetchHtmlPage, navigatePageByHints, stripHtmlAssets, extractAnchorCandidates, heuristicExtractContacts } from '@/server/utils/scrape'
 import { selectRelevantLinks, extractContactsFromHtml, suggestNavigationForContacts, selectLinksFromCandidates } from '@/server/utils/ai'
 
-type Body = { query: string; top?: number }
+type Body = { query: string; top?: number; pages?: number }
 
 export default defineEventHandler(async (event) => {
     const body = await readBody<Body>(event)
     if (!body?.query || typeof body.query !== 'string') {
         throw createError({ statusCode: 400, statusMessage: 'query is required' })
     }
-    const { GOOGLE_SEARCH_UA } = useRuntimeConfig()
+    const runtimeConfig = useRuntimeConfig()
+    const { GOOGLE_SEARCH_UA } = runtimeConfig
     const limit = body.top && body.top > 0 ? Math.min(15, body.top) : 10
+    const pagesCount = body.pages && body.pages > 0 ? Math.min(10, body.pages) : 3
+    const browserConfig = {
+        headless: String(runtimeConfig.PUPPETEER_HEADLESS).toLowerCase() !== 'false',
+        slowMo: Number(runtimeConfig.PUPPETEER_SLOWMO) || 0,
+        devtools: String(runtimeConfig.PUPPETEER_DEVTOOLS).toLowerCase() === 'true',
+    }
 
     const globalLogs: string[] = []
     const log = (msg: string) => {
@@ -20,35 +27,50 @@ export default defineEventHandler(async (event) => {
         console.log(line)
     }
 
-    log(`Старт запроса: "${body.query}" (top=${limit})`)
+    log(`Старт запроса: "${body.query}" (top=${limit}, pages=${pagesCount})`)
 
-    log('Шаг 1: Поиск Google... (получаю HTML)')
-    const serpHtml = await googleSearchHtml(body.query, GOOGLE_SEARCH_UA)
-    const serpReduced = stripHtmlAssets(serpHtml.html)
-    log('Шаг 2: Извлечение ссылок из HTML... (кандидаты)')
-    const candidates = extractAnchorCandidates(serpReduced, serpHtml.url, 120)
-    log(`Кандидатов ссылок: ${candidates.length}`)
+    log('Шаг 1: Поиск Google... (получаю HTML с нескольких страниц)')
+    const serpPages = await googleSearchHtmlPages(body.query, pagesCount, GOOGLE_SEARCH_UA, browserConfig)
+
+    const candidates: { url: string; title: string }[] = []
+    const seenLinks = new Set<string>()
+
+    serpPages.forEach((page, index) => {
+        const reduced = stripHtmlAssets(page.html)
+        const localCandidates = extractAnchorCandidates(reduced, page.url, 150)
+
+        log(`Страница ${index + 1}: кандидатов ссылок ${localCandidates.length}`)
+
+        for (const candidate of localCandidates) {
+            if (seenLinks.has(candidate.url)) {
+                continue
+            }
+
+            seenLinks.add(candidate.url)
+            candidates.push(candidate)
+        }
+    })
+
+    log(`Всего уникальных кандидатов: ${candidates.length}`)
 
     log('Шаг 2a: Отбор кандидатов через ИИ ...')
     const candidatesForAi = candidates.map(c => ({ url: c.url, title: c.title, snippet: '' }))
     const aiLinks = await selectLinksFromCandidates(body.query, candidatesForAi, 15)
-    const toAbsolute = (u: string) => {
-        try { return new URL(u, serpHtml.url).href } catch { return u }
-    }
+
     let serp = aiLinks
-        .map(l => ({ ...l, url: toAbsolute(l.url) }))
+        .map(l => ({ ...l }))
         .filter(l => /^https?:\/\//i.test(l.url))
         .slice(0, limit)
+
     log(`Шаг 2: ИИ выделил результатов: ${serp.length}`)
     if (!serp.length) {
-        log('Шаг 2b: Пусто. Фоллбек извлечения по DOM (ограниченно)...')
-        try {
-            const serpFallback = await googleSearch(body.query, limit, GOOGLE_SEARCH_UA)
-            serp = serpFallback
-            log(`Фоллбек дал результатов: ${serp.length}`)
-        } catch (e: any) {
-            log(`Фоллбек не удался: ${e?.message || e}`)
-        }
+        log('Шаг 2b: Пусто. Фоллбек — берём первые ссылки вручную.')
+        serp = candidates.slice(0, limit).map((c) => ({
+            url: c.url,
+            title: c.title,
+            snippet: '',
+        }))
+        log(`Фоллбек дал результатов: ${serp.length}`)
     }
 
     log('Шаг 3: Финальная фильтрация ссылок через ИИ...')
@@ -66,7 +88,6 @@ export default defineEventHandler(async (event) => {
         .filter(i => !isAggregator(i.url))
     log(`Фильтр агрегаторов: осталось ${relevant.length}`)
 
-    const results: any[] = []
     const cleanPhones = (phones: string[]) => {
         const out = new Set<string>()
         const isOk = (p: string) => {
@@ -147,7 +168,43 @@ export default defineEventHandler(async (event) => {
         }
         return Array.from(perPlatform.values())
     }
-    for (const link of relevant) {
+
+    const runWithConcurrency = async <T, R>(
+        items: T[],
+        limit: number,
+        worker: (item: T, index: number) => Promise<R | null>,
+    ): Promise<R[]> => {
+        if (!items.length) {
+            return []
+        }
+
+        const results = new Array<R | null>(items.length).fill(null)
+        let pointer = 0
+
+        const makeWorker = async () => {
+            while (true) {
+                const current = pointer
+                pointer += 1
+
+                if (current >= items.length) {
+                    break
+                }
+
+                results[current] = await worker(items[current], current)
+            }
+        }
+
+        const workers = Array.from({ length: Math.min(limit, items.length) }, () => makeWorker())
+        await Promise.all(workers)
+
+        return results.filter((value): value is R => value !== null)
+    }
+
+    const concurrency = 3
+
+    log(`Шаг 4: обработка ${relevant.length} ссылок (параллельно до ${concurrency}).`)
+
+    const processLink = async (link: (typeof relevant)[number]): Promise<any | null> => {
         const itemLogs: string[] = []
         const ilog = (m: string) => {
             const line = `[${new Date().toISOString()}] [${link.url}] ${m}`
@@ -155,56 +212,84 @@ export default defineEventHandler(async (event) => {
             console.log(line)
         }
 
-        ilog('Загрузка главной страницы...')
-        // Отделяем API вызов и присваивание пустой строкой
-        const html1 = await fetchHtml(link.url, GOOGLE_SEARCH_UA)
+        let pageRef: Awaited<ReturnType<typeof fetchHtmlPage>>['page'] | null = null
 
-        ilog(`Страница загружена: ${html1.finalUrl} (status=${html1.status})`)
+        try {
+            ilog('Загрузка главной страницы...')
 
-        const stripped1 = stripHtmlAssets(html1.html)
-        const extraction1 = await extractContactsFromHtml(stripped1, html1.finalUrl)
-        const heur1 = heuristicExtractContacts(stripped1, html1.finalUrl)
-        const socialPairs1 = new Map<string, string>()
-        for (const s of (extraction1.socials || [])) { if (s?.url) socialPairs1.set(s.url, s.platform || '') }
-        for (const s of heur1.socials) { if (s?.url) socialPairs1.set(s.url, s.platform || '') }
-        const merged1 = {
-            emails: Array.from(new Set([...(extraction1.emails || []), ...heur1.emails])),
-            phones: cleanPhones([...(extraction1.phones || []), ...heur1.phones]),
-            socials: cleanSocials(Array.from(socialPairs1.entries()).map(([url, platform]) => ({ url, platform }))),
-            contactPageHints: extraction1.contactPageHints || [],
+            const main = await fetchHtmlPage(link.url, GOOGLE_SEARCH_UA, browserConfig)
+
+            pageRef = main.page
+
+            ilog(`Страница загружена: ${main.finalUrl} (status=${main.status})`)
+
+            const stripped1 = stripHtmlAssets(main.html)
+            const extraction1 = await extractContactsFromHtml(stripped1, main.finalUrl)
+            const heur1 = heuristicExtractContacts(stripped1, main.finalUrl)
+            const socialPairs1 = new Map<string, string>()
+
+            for (const s of extraction1.socials || []) {
+                if (s?.url) socialPairs1.set(s.url, s.platform || '')
+            }
+
+            for (const s of heur1.socials) {
+                if (s?.url) socialPairs1.set(s.url, s.platform || '')
+            }
+
+            const merged1 = {
+                emails: Array.from(new Set([...(extraction1.emails || []), ...heur1.emails])),
+                phones: cleanPhones([...(extraction1.phones || []), ...heur1.phones]),
+                socials: cleanSocials(Array.from(socialPairs1.entries()).map(([url, platform]) => ({ url, platform }))),
+                contactPageHints: extraction1.contactPageHints || [],
+            }
+
+            ilog(`Первичная выжимка: emails=${merged1.emails.length}, phones=${merged1.phones.length}, socials=${merged1.socials.length}`)
+
+            if (merged1.emails.length || merged1.phones.length || merged1.socials.length) {
+                ilog('Контакты найдены на главной, сохраняю результат')
+                return { link, page: main.finalUrl, contacts: merged1, logs: itemLogs }
+            }
+
+            const hints = extraction1.contactPageHints.length
+                ? extraction1.contactPageHints
+                : await suggestNavigationForContacts(main.html, main.finalUrl)
+
+            ilog(`Переход по подсказкам (${hints.length}) для поиска контактов...`)
+
+            const navigated = await navigatePageByHints(pageRef, hints)
+
+            ilog(`Открыта страница: ${navigated.url}`)
+
+            const stripped2 = stripHtmlAssets(navigated.html)
+            const extraction2 = await extractContactsFromHtml(stripped2, navigated.url)
+            const heur2 = heuristicExtractContacts(stripped2, navigated.url)
+            const socialPairs2 = new Map<string, string>()
+
+            for (const s of extraction2.socials || []) {
+                if (s?.url) socialPairs2.set(s.url, s.platform || '')
+            }
+
+            for (const s of heur2.socials) {
+                if (s?.url) socialPairs2.set(s.url, s.platform || '')
+            }
+
+            const merged2 = {
+                emails: Array.from(new Set([...(extraction2.emails || []), ...heur2.emails])),
+                phones: cleanPhones([...(extraction2.phones || []), ...heur2.phones]),
+                socials: cleanSocials(Array.from(socialPairs2.entries()).map(([url, platform]) => ({ url, platform }))),
+                contactPageHints: extraction2.contactPageHints || [],
+            }
+
+            ilog(`Повторная выжимка: emails=${merged2.emails.length}, phones=${merged2.phones.length}, socials=${merged2.socials.length}`)
+
+            return { link, page: navigated.url, contacts: merged2, hintsTried: hints, logs: itemLogs }
+        } catch (error: any) {
+            ilog(`Ошибка при обработке: ${error?.message || error}`)
+            return { link, page: link.url, contacts: { emails: [], phones: [], socials: [], contactPageHints: [] }, logs: itemLogs, error: true }
         }
-        ilog(`Первичная выжимка: emails=${merged1.emails.length}, phones=${merged1.phones.length}, socials=${merged1.socials.length}`)
-
-        if (merged1.emails.length || merged1.phones.length || merged1.socials.length) {
-            ilog('Контакты найдены на главной, сохраняю результат')
-            results.push({ link, page: html1.finalUrl, contacts: merged1, logs: itemLogs })
-            continue
-        }
-
-        const hints = extraction1.contactPageHints.length
-            ? extraction1.contactPageHints
-            : await suggestNavigationForContacts(html1.html, html1.finalUrl)
-
-        ilog(`Переход по подсказкам (${hints.length}) для поиска контактов...`)
-        const navigated = await navigateByHints(html1.finalUrl, hints, GOOGLE_SEARCH_UA)
-        ilog(`Открыта страница: ${navigated.url}`)
-
-        const stripped2 = stripHtmlAssets(navigated.html)
-        const extraction2 = await extractContactsFromHtml(stripped2, navigated.url)
-        const heur2 = heuristicExtractContacts(stripped2, navigated.url)
-        const socialPairs2 = new Map<string, string>()
-        for (const s of (extraction2.socials || [])) { if (s?.url) socialPairs2.set(s.url, s.platform || '') }
-        for (const s of heur2.socials) { if (s?.url) socialPairs2.set(s.url, s.platform || '') }
-        const merged2 = {
-            emails: Array.from(new Set([...(extraction2.emails || []), ...heur2.emails])),
-            phones: cleanPhones([...(extraction2.phones || []), ...heur2.phones]),
-            socials: cleanSocials(Array.from(socialPairs2.entries()).map(([url, platform]) => ({ url, platform }))),
-            contactPageHints: extraction2.contactPageHints || [],
-        }
-        ilog(`Повторная выжимка: emails=${merged2.emails.length}, phones=${merged2.phones.length}, socials=${merged2.socials.length}`)
-
-        results.push({ link, page: navigated.url, contacts: merged2, hintsTried: hints, logs: itemLogs })
     }
+
+    const results = await runWithConcurrency(relevant, concurrency, processLink)
 
     log(`Завершено. Возвращаю ${results.length} элементов.`)
 
