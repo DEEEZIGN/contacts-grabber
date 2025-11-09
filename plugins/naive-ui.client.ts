@@ -1,4 +1,4 @@
-import { create, NAlert, NButton, NCard, NCollapse, NCollapseItem, NConfigProvider, NEmpty, NGrid, NGridItem, NInput, NInputNumber, NLayout, NLayoutContent, NLayoutSider, NA, NScrollbar, NSpace, NSpin, NTag, NText } from 'naive-ui'
+import { create, NAlert, NButton, NCard, NCollapse, NCollapseItem, NConfigProvider, NEmpty, NGrid, NGridItem, NInput, NInputNumber, NLayout, NLayoutContent, NLayoutSider, NA, NScrollbar, NSpace, NSpin, NTag, NText, NProgress, NModal } from 'naive-ui'
 
 const naive = create({
     components: [
@@ -17,6 +17,8 @@ const naive = create({
         NEmpty,
         NScrollbar,
         NSpin,
+        NProgress,
+        NModal,
         NTag,
         NCollapse,
         NCollapseItem,

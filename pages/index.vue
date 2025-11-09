@@ -28,28 +28,15 @@
                 <div class="content-wrapper">
                     <n-space vertical size="large">
                         <n-card title="Поиск и парсинг контактов">
-                            <n-space vertical size="medium">
-                                <n-grid :x-gap="12" :y-gap="12" :cols="24" responsive="screen">
-                                    <n-grid-item :span="24" :span-md="14">
-                                        <n-space vertical size="small">
-                                            <n-text strong>Запрос</n-text>
-                                            <n-input v-model:value="query" placeholder="Музыкальные студии Тюмень"
-                                                clearable @keydown.enter="run" />
-                                        </n-space>
-                                    </n-grid-item>
-                                    <n-grid-item :span="24" :span-md="6">
-                                        <n-space vertical size="small">
-                                            <n-text strong>Страниц поиска</n-text>
-                                            <n-input-number v-model:value="pagesCount" :min="1" :max="10" :step="1"
-                                                button-placement="both" />
-                                        </n-space>
-                                    </n-grid-item>
-                                    <n-grid-item :span="24" :span-md="4" class="button-cell">
-                                        <n-button type="primary" size="large" :loading="loading" block @click="run">
-                                            {{ loading ? 'Идет поиск...' : 'Старт' }}
-                                        </n-button>
-                                    </n-grid-item>
-                                </n-grid>
+                            <n-space class="search-row" align="center" size="small">
+                                <n-input class="query-input" v-model:value="query"
+                                    placeholder="Музыкальные студии Тюмень" clearable @keydown.enter="run" />
+                                <n-input-number class="pages-input" v-model:value="pagesCount" :min="1" :max="10"
+                                    :step="1" button-placement="both" />
+                                <n-button class="search-button" type="primary" size="medium" :loading="loading"
+                                    @click="run">
+                                    {{ loading ? 'Идет поиск...' : 'Старт' }}
+                                </n-button>
                             </n-space>
                         </n-card>
 
@@ -57,11 +44,13 @@
                             {{ error }}
                         </n-alert>
 
-                        <n-card v-if="globalLogs.length" title="Логи процесса">
-                            <n-scrollbar style="max-height: 260px;">
-                                <pre class="log-pre">{{ globalLogs.join('\n') }}</pre>
-                            </n-scrollbar>
-                        </n-card>
+                        <div class="progress-row">
+                            <n-progress v-if="loading" type="line" :percentage="100" processing indeterminate />
+                            <n-progress v-else-if="results.length" type="line" :percentage="100" />
+                            <n-button size="small" tertiary :disabled="!globalLogs.length" @click="showLogs = true">
+                                Открыть логи
+                            </n-button>
+                        </div>
 
                         <n-card v-if="results.length" :title="`Результаты (${results.length})`">
                             <n-space vertical size="large">
@@ -174,6 +163,7 @@ const historyItems = ref<HistoryItem[]>([])
 const historySelectedId = ref<number | null>(null)
 const historyLoading = ref(false)
 const restoringHistory = ref(false)
+const showLogs = ref(false)
 
 const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
     dateStyle: 'short',
@@ -269,10 +259,49 @@ onMounted(async () => {
 })
 
 </script>
-
 <style scoped>
     .page-layout {
         min-height: 100vh;
+    }
+
+    .search-row {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        width: 100%;
+        gap: 12px;
+        align-items: center;
+        justify-content: center;
+
+        &>div:first-child {
+            flex-grow: 1 !important;
+        }
+
+        &>div:last-child {
+            flex-grow: 0 !important;
+        }
+    }
+
+    .query-input {
+        min-width: 400px;
+        width: 100%;
+        display: flex;
+        flex-grow: 1;
+    }
+
+    .pages-input {
+        width: 160px;
+    }
+
+    .search-button {
+        width: 200px;
+        flex: 0 0 200px;
+    }
+
+    .progress-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 24px;
     }
 
     .button-cell {
@@ -296,7 +325,6 @@ onMounted(async () => {
     }
 
     .sidebar {
-        padding: 24px 16px;
         border-right: 1px solid rgba(224, 224, 230, 0.6);
         background: #f7f8fa;
     }
@@ -304,11 +332,11 @@ onMounted(async () => {
     .sidebar-header {
         font-weight: 600;
         font-size: 16px;
-        margin-bottom: 16px;
+        padding: 16px;
     }
 
     .history-wrapper {
-        height: calc(100vh - 120px);
+        height: calc(100vh - 90px);
     }
 
     .history-scroll {
@@ -325,6 +353,8 @@ onMounted(async () => {
         justify-content: flex-start;
         text-align: left;
         white-space: normal;
+        padding: 8px 16px;
+        height: 64px;
     }
 
     .history-item_active {

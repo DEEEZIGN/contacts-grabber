@@ -1133,15 +1133,15 @@ const plugins = [
 const assets = {
   "/index.mjs": {
     "type": "text/javascript; charset=utf-8",
-    "etag": "\"19885-OSu+xCxiLveeuZHrXkPNYrxOUoE\"",
-    "mtime": "2025-11-09T19:59:38.064Z",
+    "etag": "\"19885-/oOKlM5YecXrCjM5qUKGvsh84I0\"",
+    "mtime": "2025-11-09T20:00:22.340Z",
     "size": 104581,
     "path": "index.mjs"
   },
   "/index.mjs.map": {
     "type": "application/json",
     "etag": "\"6290f-8L7oU08nJk83W/l8UQPLozPlxLA\"",
-    "mtime": "2025-11-09T19:59:38.064Z",
+    "mtime": "2025-11-09T20:00:22.340Z",
     "size": 403727,
     "path": "index.mjs.map"
   }
