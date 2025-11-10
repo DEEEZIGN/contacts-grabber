@@ -36,3 +36,15 @@ package-lock.json
 # pnpm-lock.yaml
 
 
+# Data files
+data/history.json
+data/templates.json
+data/settings.json
+data/uploads/
+data/chrome-profile/
+
+.nuxt/
+.output/
+.dist/
+.cache/
+.tmp/

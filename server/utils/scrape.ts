@@ -1,4 +1,5 @@
 import puppeteer, { Browser, HTTPResponse, Page } from 'puppeteer'
+import { join } from 'node:path'
 
 export type SearchResult = {
     url: string
@@ -16,13 +17,15 @@ export type BrowserLaunchConfig = {
     headless: boolean
     slowMo: number
     devtools: boolean
+    userDataDir?: string
 }
 
 let sharedBrowser: Browser | null = null
 let activeBrowserKey: string | null = null
+let isLaunching = false
 
 const configToKey = (config: BrowserLaunchConfig) =>
-    `${config.headless ? 'h1' : 'h0'}|${config.slowMo}|${config.devtools ? 'd1' : 'd0'}`
+    `${config.headless ? 'h1' : 'h0'}|${config.slowMo}|${config.devtools ? 'd1' : 'd0'}|${config.userDataDir ? 'p1' : 'p0'}`
 
 async function getBrowser(config: BrowserLaunchConfig): Promise<Browser> {
     const key = configToKey(config)
@@ -30,6 +33,15 @@ async function getBrowser(config: BrowserLaunchConfig): Promise<Browser> {
     if (sharedBrowser && sharedBrowser.isConnected() && activeBrowserKey === key) {
         return sharedBrowser
     }
+
+    // serialize concurrent launches
+    while (isLaunching) {
+        await delay(100)
+        if (sharedBrowser && sharedBrowser.isConnected() && activeBrowserKey === key) {
+            return sharedBrowser
+        }
+    }
+    isLaunching = true
 
     if (sharedBrowser) {
         try {
@@ -40,7 +52,8 @@ async function getBrowser(config: BrowserLaunchConfig): Promise<Browser> {
         sharedBrowser = null
     }
 
-    sharedBrowser = await puppeteer.launch({
+    const profileDir = config.userDataDir || join(process.cwd(), 'data', 'chrome-profile')
+    const baseOptions = {
         headless: config.headless,
         slowMo: config.slowMo,
         devtools: config.devtools,
@@ -55,12 +68,29 @@ async function getBrowser(config: BrowserLaunchConfig): Promise<Browser> {
             '--lang=ru-RU,ru',
             '--disable-blink-features=AutomationControlled',
             '--window-size=1366,768',
-        ],
-    })
+        ] as string[],
+    }
 
-    activeBrowserKey = key
+    try {
+        sharedBrowser = await puppeteer.launch({
+            ...baseOptions,
+            userDataDir: profileDir,
+        } as any)
+        activeBrowserKey = key
+        return sharedBrowser
+    } catch (err: any) {
+        const msg = String(err?.message || err)
+        if (msg.includes('ProcessSingleton') || msg.includes('already running')) {
+            isLaunching = false
+            throw new Error(`Profile already in use for ${profileDir}. Please keep a single instance; close other Chrome with this profile or reuse the existing window.`)
+        }
+        isLaunching = false
+        throw err
+    } finally {
+        isLaunching = false
+    }
 
-    return sharedBrowser
+    // unreachable
 }
 
 export async function closeSharedBrowser(): Promise<void> {
@@ -379,6 +409,160 @@ export function heuristicExtractContacts(html: string, _baseUrl: string): {
         emails: Array.from(emailsSet),
         phones,
         socials,
+    }
+}
+
+// Browser-based personal account messaging helpers
+export async function sendTelegramViaWeb(to: string, text: string, config: BrowserLaunchConfig): Promise<boolean> {
+    const browser = await getBrowser(config)
+    const page = await browser.newPage()
+    await preparePage(page)
+    const target = (() => {
+        const raw = to.trim()
+        if (raw.startsWith('@')) return raw.slice(1)
+        try {
+            const u = new URL(raw)
+            if (/t\.me|telegram\.me/i.test(u.hostname)) {
+                return u.pathname.replace(/^\//, '')
+            }
+        } catch {}
+        return raw
+    })()
+
+    const tryOpenWeb = async (url: string) => {
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 }).catch(() => null)
+        // Wait for editor; if login is required, selector will not appear
+        const editor = await page.waitForSelector('[contenteditable="true"]', { timeout: 12000 }).catch(() => null)
+        return Boolean(editor)
+    }
+
+    let opened = false
+    // Try direct Web Telegram variants first
+    const webCandidates = [
+        `https://web.telegram.org/k/#@${encodeURIComponent(target)}`,
+        `https://web.telegram.org/a/#@${encodeURIComponent(target)}`,
+        `https://web.telegram.org/#@${encodeURIComponent(target)}`,
+    ]
+    for (const u of webCandidates) {
+        // eslint-disable-next-line no-await-in-loop
+        if (await tryOpenWeb(u)) {
+            opened = true
+            break
+        }
+    }
+
+    // If still not opened, go through t.me and click "Open in Web"
+    if (!opened) {
+        await page.goto(`https://t.me/${encodeURIComponent(target)}`, { waitUntil: 'networkidle2', timeout: 90000 }).catch(() => null)
+        // Find anchor by innerText on the page
+        await page.evaluate(() => {
+            const texts = ['Open in Web', 'Открыть в вебе', 'Open Web', 'Open Telegram Web']
+            const links = Array.from(document.querySelectorAll('a')) as HTMLAnchorElement[]
+            const cand = links.find(a => {
+                const t = (a.innerText || a.textContent || '').trim()
+                return texts.some(x => t.includes(x)) || /web\.telegram\.org/i.test(a.href)
+            })
+            if (cand) {
+                cand.target = '_self'
+                cand.click()
+            }
+        })
+        // Wait and then try web again
+        for (const u of webCandidates) {
+            // eslint-disable-next-line no-await-in-loop
+            if (await tryOpenWeb(u)) {
+                opened = true
+                break
+            }
+        }
+    }
+
+    if (!opened) {
+        await closePageSafe(page)
+        return false
+    }
+
+    // Focus composer and send
+    const editor = await page.$('[contenteditable="true"]')
+    if (!editor) {
+        await closePageSafe(page)
+        return false
+    }
+    await editor.focus()
+    await page.keyboard.type(text, { delay: 20 })
+    await page.keyboard.press('Enter')
+    await closePageSafe(page)
+    return true
+}
+
+export async function sendWhatsAppViaWeb(to: string, text: string, config: BrowserLaunchConfig): Promise<boolean> {
+    const browser = await getBrowser(config)
+    const page = await browser.newPage()
+    await preparePage(page)
+    const digits = to.replace(/[^0-9]/g, '')
+    // Start with wa.me, it will redirect to web.whatsapp.com
+    await page.goto(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, { waitUntil: 'networkidle2', timeout: 90000 }).catch(() => null)
+    // Click "Continue to Chat" if present
+    try {
+        const cont = await page.$('a#action-button, a:has-text("Continue to Chat"), a:has-text("Перейти к чату")')
+        if (cont) {
+            await Promise.all([
+                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 90000 }).catch(() => null),
+                cont.click(),
+            ])
+        }
+    } catch {}
+    // On web.whatsapp.com, wait for editor and send (text already passed may be prefilled)
+    try {
+        const editor = await page.waitForSelector('[contenteditable="true"]', { timeout: 20000 })
+        if (!editor) return false
+        await editor.focus()
+        // If not prefilled, type text
+        const pageText = await page.evaluate(() => document.body?.innerText || '')
+        if (!pageText.includes(text)) {
+            await page.keyboard.type(text, { delay: 20 })
+        }
+        await page.keyboard.press('Enter')
+        return true
+    } catch {
+        return false
+    } finally {
+        await closePageSafe(page)
+    }
+}
+
+export async function sendVkViaWeb(to: string, text: string, config: BrowserLaunchConfig): Promise<boolean> {
+    const browser = await getBrowser(config)
+    const page = await browser.newPage()
+    await preparePage(page)
+    const clean = to.replace(/^https?:\/\/(?:www\.)?vk\.com\//i, '')
+    // Try direct IM link first
+    await page.goto(`https://vk.com/im?sel=${encodeURIComponent(clean)}`, { waitUntil: 'networkidle2', timeout: 90000 }).catch(() => null)
+    // If not on IM page, open profile then click "Написать сообщение"
+    if (!/vk\.com\/im\?sel=/i.test(page.url())) {
+        await page.goto(`https://vk.com/${encodeURIComponent(clean)}`, { waitUntil: 'networkidle2', timeout: 90000 }).catch(() => null)
+        try {
+            const msgBtn = await page.waitForSelector('a[aria-label*="Сообщение"], a[aria-label*="Написать"], button:has-text("Написать")', { timeout: 15000 })
+            if (msgBtn) {
+                await Promise.all([
+                    page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 90000 }).catch(() => null),
+                    msgBtn.click(),
+                ])
+            }
+        } catch {}
+    }
+    // Type and send
+    try {
+        const editor = await page.waitForSelector('[contenteditable="true"]', { timeout: 20000 })
+        if (!editor) return false
+        await editor.focus()
+        await page.keyboard.type(text, { delay: 20 })
+        await page.keyboard.press('Enter')
+        return true
+    } catch {
+        return false
+    } finally {
+        await closePageSafe(page)
     }
 }
 

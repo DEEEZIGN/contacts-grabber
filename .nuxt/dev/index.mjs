@@ -5,9 +5,9 @@ import { resolve, dirname, join } from 'node:path';
 import nodeCrypto, { randomUUID } from 'node:crypto';
 import { parentPort, threadId } from 'node:worker_threads';
 import { promises, existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
-import puppeteer from 'file:///Volumes/L/Misha/node_modules/.pnpm/puppeteer@24.24.0_typescript@5.6.3/node_modules/puppeteer/lib/esm/puppeteer/puppeteer.js';
 import OpenAI from 'file:///Volumes/L/Misha/node_modules/.pnpm/openai@4.67.1/node_modules/openai/index.mjs';
 import nodemailer from 'file:///Volumes/L/Misha/node_modules/.pnpm/nodemailer@6.9.15/node_modules/nodemailer/lib/nodemailer.js';
+import puppeteer from 'file:///Volumes/L/Misha/node_modules/.pnpm/puppeteer@24.24.0_typescript@5.6.3/node_modules/puppeteer/lib/esm/puppeteer/puppeteer.js';
 import { getRequestDependencies, getPreloadLinks, getPrefetchLinks, createRenderer } from 'file:///Volumes/L/Misha/node_modules/.pnpm/vue-bundle-renderer@2.2.0/node_modules/vue-bundle-renderer/dist/runtime.mjs';
 import { stringify, uneval } from 'file:///Volumes/L/Misha/node_modules/.pnpm/devalue@5.4.2/node_modules/devalue/index.js';
 import destr from 'file:///Volumes/L/Misha/node_modules/.pnpm/destr@2.0.5/node_modules/destr/dist/index.mjs';
@@ -1134,16 +1134,16 @@ const plugins = [
 const assets = {
   "/index.mjs": {
     "type": "text/javascript; charset=utf-8",
-    "etag": "\"1b6ba-oaLRN96crNkZ5vgSd5SAF1wMs2M\"",
-    "mtime": "2025-11-09T20:28:11.893Z",
-    "size": 112314,
+    "etag": "\"1dce6-+SfleReoNiFN+QhTG8+rp+6TIpE\"",
+    "mtime": "2025-11-10T11:30:52.879Z",
+    "size": 122086,
     "path": "index.mjs"
   },
   "/index.mjs.map": {
     "type": "application/json",
-    "etag": "\"68a73-bngyax4JW6SFPcz4QTq9dE7MnRk\"",
-    "mtime": "2025-11-09T20:28:11.893Z",
-    "size": 428659,
+    "etag": "\"70e91-/grFg4NMKdwGpZDJl1jzuHNqDUY\"",
+    "mtime": "2025-11-10T11:30:52.880Z",
+    "size": 462481,
     "path": "index.mjs.map"
   }
 };
@@ -1237,24 +1237,34 @@ const _FNHlDH = eventHandler((event) => {
 
 const _lazy_77pPbs = () => Promise.resolve().then(function () { return history_get$1; });
 const _lazy_Fnr07D = () => Promise.resolve().then(function () { return _id__get$1; });
+const _lazy_olInqw = () => Promise.resolve().then(function () { return seed_post$1; });
 const _lazy_AFVAmM = () => Promise.resolve().then(function () { return search_post$1; });
 const _lazy_HOWorg = () => Promise.resolve().then(function () { return sendOffer_post$1; });
+const _lazy_PHK37G = () => Promise.resolve().then(function () { return sendWhatsapp_post$1; });
+const _lazy_pRGJHd = () => Promise.resolve().then(function () { return settings_get$1; });
+const _lazy_2WvHji = () => Promise.resolve().then(function () { return settings_post$1; });
 const _lazy_6BDBGm = () => Promise.resolve().then(function () { return templates_get$1; });
 const _lazy_mOkQr3 = () => Promise.resolve().then(function () { return templates_post$1; });
 const _lazy_wZVZ2w = () => Promise.resolve().then(function () { return _id__delete$1; });
 const _lazy_3KUQoR = () => Promise.resolve().then(function () { return upload_post$1; });
+const _lazy_iTaLwg = () => Promise.resolve().then(function () { return webSendWhatsapp_post$1; });
 const _lazy_gspZnU = () => Promise.resolve().then(function () { return renderer$1; });
 
 const handlers = [
   { route: '', handler: _FNHlDH, lazy: false, middleware: true, method: undefined },
   { route: '/api/history', handler: _lazy_77pPbs, lazy: true, middleware: false, method: "get" },
   { route: '/api/history/:id', handler: _lazy_Fnr07D, lazy: true, middleware: false, method: "get" },
+  { route: '/api/history/seed', handler: _lazy_olInqw, lazy: true, middleware: false, method: "post" },
   { route: '/api/search', handler: _lazy_AFVAmM, lazy: true, middleware: false, method: "post" },
   { route: '/api/send-offer', handler: _lazy_HOWorg, lazy: true, middleware: false, method: "post" },
+  { route: '/api/send-whatsapp', handler: _lazy_PHK37G, lazy: true, middleware: false, method: "post" },
+  { route: '/api/settings', handler: _lazy_pRGJHd, lazy: true, middleware: false, method: "get" },
+  { route: '/api/settings', handler: _lazy_2WvHji, lazy: true, middleware: false, method: "post" },
   { route: '/api/templates', handler: _lazy_6BDBGm, lazy: true, middleware: false, method: "get" },
   { route: '/api/templates', handler: _lazy_mOkQr3, lazy: true, middleware: false, method: "post" },
   { route: '/api/templates/:id', handler: _lazy_wZVZ2w, lazy: true, middleware: false, method: "delete" },
   { route: '/api/templates/upload', handler: _lazy_3KUQoR, lazy: true, middleware: false, method: "post" },
+  { route: '/api/web-send-whatsapp', handler: _lazy_iTaLwg, lazy: true, middleware: false, method: "post" },
   { route: '/__nuxt_error', handler: _lazy_gspZnU, lazy: true, middleware: false, method: undefined },
   { route: '/**', handler: _lazy_gspZnU, lazy: true, middleware: false, method: undefined }
 ];
@@ -1665,14 +1675,76 @@ const _id__get$1 = /*#__PURE__*/Object.freeze({
   default: _id__get
 });
 
+const seed_post = defineEventHandler(async () => {
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const sampleResults = [
+    {
+      link: {
+        url: "https://example-studio.ru/",
+        title: "\u041C\u0443\u0437\u044B\u043A\u0430\u043B\u044C\u043D\u0430\u044F \u0441\u0442\u0443\u0434\u0438\u044F Example",
+        snippet: "\u0417\u0430\u043F\u0438\u0441\u044C \u0438 \u043E\u0431\u0443\u0447\u0435\u043D\u0438\u0435 \u043C\u0443\u0437\u044B\u043A\u0435"
+      },
+      page: "https://example-studio.ru/",
+      contacts: {
+        emails: ["info@example-studio.ru"],
+        phones: ["+7 (999) 123-45-67"],
+        socials: [
+          { platform: "vk", url: "https://vk.com/example_studio" },
+          { platform: "telegram", url: "https://t.me/ZaderaVladislav" }
+        ]
+      },
+      logs: [`[${now}] Seeded sample item 1`],
+      hintsTried: ["\u041A\u043E\u043D\u0442\u0430\u043A\u0442\u044B", "\u0421\u0432\u044F\u0437\u0430\u0442\u044C\u0441\u044F"]
+    },
+    {
+      link: {
+        url: "https://romantic-sound.ru/",
+        title: "\u0428\u043A\u043E\u043B\u0430 \u043C\u0443\u0437\u044B\u043A\u0438 \xABRomantic Sound\xBB",
+        snippet: "\u041C\u0443\u0437\u044B\u043A\u0430\u043B\u044C\u043D\u0430\u044F \u0448\u043A\u043E\u043B\u0430 \u0434\u043B\u044F \u0434\u0435\u0442\u0435\u0439 \u0438 \u0432\u0437\u0440\u043E\u0441\u043B\u044B\u0445"
+      },
+      page: "https://romantic-sound.ru/",
+      contacts: {
+        emails: ["client@romantic-sound.ru"],
+        phones: ["+7 (3452) 52-08-48", "+7 (909) 741-64-50"],
+        socials: [
+          { platform: "whatsapp", url: "https://wa.me/79612057647" },
+          { platform: "telegram", url: "https://t.me/RomanticSoundTMN" },
+          { platform: "vk", url: "https://vk.me/romanticsound" }
+        ]
+      },
+      logs: [`[${now}] Seeded sample item 2`],
+      hintsTried: ["\u041A\u043E\u043D\u0442\u0430\u043A\u0442\u044B", "\u041D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u043D\u0430\u043C"]
+    }
+  ];
+  const payload = {
+    results: sampleResults,
+    logs: [`[${now}] \u0414\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0430 \u0442\u0435\u0441\u0442\u043E\u0432\u0430\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u044F (2 \u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430)`]
+  };
+  const id = saveSearchResult("\u0422\u0435\u0441\u0442\u043E\u0432\u044B\u0435 \u043A\u043E\u043D\u0442\u0430\u043A\u0442\u044B", payload);
+  return { ok: true, id };
+});
+
+const seed_post$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: seed_post
+});
+
 let sharedBrowser = null;
 let activeBrowserKey = null;
-const configToKey = (config) => `${config.headless ? "h1" : "h0"}|${config.slowMo}|${config.devtools ? "d1" : "d0"}`;
+let isLaunching = false;
+const configToKey = (config) => `${config.headless ? "h1" : "h0"}|${config.slowMo}|${config.devtools ? "d1" : "d0"}|${config.userDataDir ? "p1" : "p0"}`;
 async function getBrowser(config) {
   const key = configToKey(config);
   if (sharedBrowser && sharedBrowser.isConnected() && activeBrowserKey === key) {
     return sharedBrowser;
   }
+  while (isLaunching) {
+    await delay(100);
+    if (sharedBrowser && sharedBrowser.isConnected() && activeBrowserKey === key) {
+      return sharedBrowser;
+    }
+  }
+  isLaunching = true;
   if (sharedBrowser) {
     try {
       await sharedBrowser.close();
@@ -1680,7 +1752,8 @@ async function getBrowser(config) {
     }
     sharedBrowser = null;
   }
-  sharedBrowser = await puppeteer.launch({
+  const profileDir = config.userDataDir || join(process.cwd(), "data", "chrome-profile");
+  const baseOptions = {
     headless: config.headless,
     slowMo: config.slowMo,
     devtools: config.devtools,
@@ -1696,9 +1769,25 @@ async function getBrowser(config) {
       "--disable-blink-features=AutomationControlled",
       "--window-size=1366,768"
     ]
-  });
-  activeBrowserKey = key;
-  return sharedBrowser;
+  };
+  try {
+    sharedBrowser = await puppeteer.launch({
+      ...baseOptions,
+      userDataDir: profileDir
+    });
+    activeBrowserKey = key;
+    return sharedBrowser;
+  } catch (err) {
+    const msg = String((err == null ? void 0 : err.message) || err);
+    if (msg.includes("ProcessSingleton") || msg.includes("already running")) {
+      isLaunching = false;
+      throw new Error(`Profile already in use for ${profileDir}. Please keep a single instance; close other Chrome with this profile or reuse the existing window.`);
+    }
+    isLaunching = false;
+    throw err;
+  } finally {
+    isLaunching = false;
+  }
 }
 async function preparePage(page, userAgent) {
   if (userAgent) {
@@ -1790,6 +1879,15 @@ async function navigatePageByHints(page, hints) {
   }
   const html = await page.content();
   return { html, url: page.url() };
+}
+async function closePageSafe(page) {
+  if (!page) {
+    return;
+  }
+  try {
+    await page.close();
+  } catch {
+  }
 }
 function stripHtmlAssets(html) {
   try {
@@ -1917,6 +2015,41 @@ function heuristicExtractContacts(html, _baseUrl) {
     phones,
     socials
   };
+}
+async function sendWhatsAppViaWeb(to, text, config) {
+  const browser = await getBrowser(config);
+  const page = await browser.newPage();
+  await preparePage(page);
+  const digits = to.replace(/[^0-9]/g, "");
+  await page.goto(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, { waitUntil: "networkidle2", timeout: 9e4 }).catch(() => null);
+  try {
+    const cont = await page.$('a#action-button, a:has-text("Continue to Chat"), a:has-text("\u041F\u0435\u0440\u0435\u0439\u0442\u0438 \u043A \u0447\u0430\u0442\u0443")');
+    if (cont) {
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: "networkidle2", timeout: 9e4 }).catch(() => null),
+        cont.click()
+      ]);
+    }
+  } catch {
+  }
+  try {
+    const editor = await page.waitForSelector('[contenteditable="true"]', { timeout: 2e4 });
+    if (!editor) return false;
+    await editor.focus();
+    const pageText = await page.evaluate(() => {
+      var _a;
+      return ((_a = document.body) == null ? void 0 : _a.innerText) || "";
+    });
+    if (!pageText.includes(text)) {
+      await page.keyboard.type(text, { delay: 20 });
+    }
+    await page.keyboard.press("Enter");
+    return true;
+  } catch {
+    return false;
+  } finally {
+    await closePageSafe(page);
+  }
 }
 
 function getClient() {
@@ -2351,19 +2484,60 @@ function getUploadsDir() {
   return uploadsDir;
 }
 
+const DATA_DIR = join(process.cwd(), "data");
+const SETTINGS_FILE = join(DATA_DIR, "settings.json");
+function ensureDataDir() {
+  if (!existsSync(DATA_DIR)) {
+    mkdirSync(DATA_DIR, { recursive: true });
+  }
+}
+function readSettingsFile() {
+  ensureDataDir();
+  if (!existsSync(SETTINGS_FILE)) {
+    return {};
+  }
+  try {
+    const raw = readFileSync(SETTINGS_FILE, "utf-8");
+    const parsed = JSON.parse(raw);
+    return parsed || {};
+  } catch {
+    return {};
+  }
+}
+function writeSettingsFile(settings) {
+  ensureDataDir();
+  const payload = JSON.stringify(settings, null, 2);
+  writeFileSync(SETTINGS_FILE, payload, "utf-8");
+}
+function getSettings() {
+  return readSettingsFile();
+}
+function saveSettings(update) {
+  const current = readSettingsFile();
+  const merged = {
+    ...current,
+    ...update,
+    smtp: update.smtp ? { ...current.smtp, ...update.smtp } : current.smtp,
+    whatsapp: update.whatsapp ? { ...current.whatsapp, ...update.whatsapp } : current.whatsapp
+  };
+  writeSettingsFile(merged);
+  return merged;
+}
+
 const sendOffer_post = defineEventHandler(async (event) => {
-  var _a, _b, _c;
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
   const body = await readBody(event);
   if (!((_a = body == null ? void 0 : body.emails) == null ? void 0 : _a.length)) {
     throw createError({ statusCode: 400, statusMessage: "emails required" });
   }
+  const saved = getSettings();
   const cfg = useRuntimeConfig();
-  const host = cfg.SMTP_HOST;
-  const port = Number(cfg.SMTP_PORT || 587);
-  const user = cfg.SMTP_USER;
-  const pass = cfg.SMTP_PASS;
-  const secure = String(cfg.SMTP_SECURE || "false").toLowerCase() === "true";
-  const from = cfg.SMTP_FROM || user;
+  const host = ((_b = saved.smtp) == null ? void 0 : _b.host) || cfg.SMTP_HOST;
+  const port = Number((_e = (_d = (_c = saved.smtp) == null ? void 0 : _c.port) != null ? _d : cfg.SMTP_PORT) != null ? _e : 587);
+  const user = ((_f = saved.smtp) == null ? void 0 : _f.user) || cfg.SMTP_USER;
+  const pass = ((_g = saved.smtp) == null ? void 0 : _g.pass) || cfg.SMTP_PASS;
+  const secure = Boolean((_i = (_h = saved.smtp) == null ? void 0 : _h.secure) != null ? _i : String(cfg.SMTP_SECURE || "false").toLowerCase() === "true");
+  const from = ((_j = saved.smtp) == null ? void 0 : _j.from) || cfg.SMTP_FROM || user;
   if (!host || !user || !pass) {
     throw createError({ statusCode: 400, statusMessage: "SMTP config missing (SMTP_HOST, SMTP_USER, SMTP_PASS)" });
   }
@@ -2380,7 +2554,7 @@ const sendOffer_post = defineEventHandler(async (event) => {
   if (body.templateId) {
     const tpl = templates.find((t) => t.id === body.templateId);
     if (!tpl) throw createError({ statusCode: 404, statusMessage: "template not found" });
-    html = (_c = (_b = body.body) != null ? _b : tpl.body) != null ? _c : "";
+    html = (_l = (_k = body.body) != null ? _k : tpl.body) != null ? _l : "";
     if (tpl.file) {
       const uploadsDir = join(process.cwd(), "data", "uploads");
       attachments.push({
@@ -2405,6 +2579,61 @@ const sendOffer_post = defineEventHandler(async (event) => {
 const sendOffer_post$1 = /*#__PURE__*/Object.freeze({
   __proto__: null,
   default: sendOffer_post
+});
+
+const sendWhatsapp_post = defineEventHandler(async (event) => {
+  var _a, _b;
+  const body = await readBody(event);
+  if (!(body == null ? void 0 : body.to) || !(body == null ? void 0 : body.text)) {
+    throw createError({ statusCode: 400, statusMessage: "to and text required" });
+  }
+  const settings = getSettings();
+  const token = (_a = settings.whatsapp) == null ? void 0 : _a.accessToken;
+  const phoneNumberId = (_b = settings.whatsapp) == null ? void 0 : _b.phoneNumberId;
+  if (!token || !phoneNumberId) {
+    throw createError({ statusCode: 400, statusMessage: "WhatsApp settings missing (accessToken, phoneNumberId)" });
+  }
+  const url = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
+  const res = await $fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: {
+      messaging_product: "whatsapp",
+      to: body.to,
+      type: "text",
+      text: { body: body.text }
+    }
+  }).catch((e) => ({ error: (e == null ? void 0 : e.data) || (e == null ? void 0 : e.message) }));
+  return res;
+});
+
+const sendWhatsapp_post$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: sendWhatsapp_post
+});
+
+const settings_get = defineEventHandler(async () => {
+  const settings = getSettings();
+  return { settings };
+});
+
+const settings_get$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: settings_get
+});
+
+const settings_post = defineEventHandler(async (event) => {
+  const body = await readBody(event);
+  const updated = saveSettings(body || {});
+  return { settings: updated };
+});
+
+const settings_post$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: settings_post
 });
 
 const templates_get = defineEventHandler(() => {
@@ -2485,6 +2714,26 @@ const upload_post = defineEventHandler(async (event) => {
 const upload_post$1 = /*#__PURE__*/Object.freeze({
   __proto__: null,
   default: upload_post
+});
+
+const webSendWhatsapp_post = defineEventHandler(async (event) => {
+  const body = await readBody(event);
+  if (!(body == null ? void 0 : body.to) || !(body == null ? void 0 : body.text)) {
+    throw createError({ statusCode: 400, statusMessage: "to and text are required" });
+  }
+  const runtimeConfig = useRuntimeConfig();
+  const browserConfig = {
+    headless: String(runtimeConfig.PUPPETEER_HEADLESS).toLowerCase() !== "false",
+    slowMo: Number(runtimeConfig.PUPPETEER_SLOWMO) || 0,
+    devtools: String(runtimeConfig.PUPPETEER_DEVTOOLS).toLowerCase() === "true"
+  };
+  const ok = await sendWhatsAppViaWeb(body.to, body.text, browserConfig);
+  return { ok };
+});
+
+const webSendWhatsapp_post$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: webSendWhatsapp_post
 });
 
 const Vue3 = version[0] === "3";

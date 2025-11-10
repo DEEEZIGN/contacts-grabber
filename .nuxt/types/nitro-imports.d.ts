@@ -75,6 +75,7 @@ declare global {
   const getRouterParam: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').getRouterParam
   const getRouterParams: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').getRouterParams
   const getSession: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').getSession
+  const getSettings: typeof import('../../server/utils/settings').getSettings
   const getUploadsDir: typeof import('../../server/utils/templates').getUploadsDir
   const getValidatedQuery: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').getValidatedQuery
   const getValidatedRouterParams: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').getValidatedRouterParams
@@ -107,6 +108,7 @@ declare global {
   const sanitizeStatusCode: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').sanitizeStatusCode
   const sanitizeStatusMessage: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').sanitizeStatusMessage
   const saveSearchResult: typeof import('../../server/utils/db').saveSearchResult
+  const saveSettings: typeof import('../../server/utils/settings').saveSettings
   const sealSession: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').sealSession
   const selectLinksFromCandidates: typeof import('../../server/utils/ai').selectLinksFromCandidates
   const selectRelevantLinks: typeof import('../../server/utils/ai').selectRelevantLinks
@@ -117,7 +119,10 @@ declare global {
   const sendProxy: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').sendProxy
   const sendRedirect: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').sendRedirect
   const sendStream: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').sendStream
+  const sendTelegramViaWeb: typeof import('../../server/utils/scrape').sendTelegramViaWeb
+  const sendVkViaWeb: typeof import('../../server/utils/scrape').sendVkViaWeb
   const sendWebResponse: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').sendWebResponse
+  const sendWhatsAppViaWeb: typeof import('../../server/utils/scrape').sendWhatsAppViaWeb
   const serveStatic: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').serveStatic
   const setCookie: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').setCookie
   const setHeader: typeof import('../../node_modules/.pnpm/h3@1.15.4/node_modules/h3').setHeader
@@ -158,6 +163,9 @@ declare global {
   export type { SearchResult, SearchHtmlPage, BrowserLaunchConfig } from '../../server/utils/scrape'
   import('../../server/utils/scrape')
   // @ts-ignore
+  export type { SmtpSettings, TelegramSettings, VkSettings, WhatsappSettings, AppSettings } from '../../server/utils/settings'
+  import('../../server/utils/settings')
+  // @ts-ignore
   export type { OfferTemplate } from '../../server/utils/templates'
   import('../../server/utils/templates')
 }
@@ -177,5 +185,6 @@ export { buildAssetsURL as __buildAssetsURL, publicAssetsURL as __publicAssetsUR
 export { defineAppConfig } from '/Volumes/L/Misha/node_modules/.pnpm/nuxt@3.13.2_@types+node@22.8.6_eslint@9.14.0_sass@1.80.6_typescript@5.6.3_vite@7.2.0_vue-tsc@3.1.3/node_modules/nuxt/dist/core/runtime/nitro/config';
 export { selectRelevantLinks, extractContactsFromHtml, suggestNavigationForContacts, extractLinksFromSerpHtml, selectLinksFromCandidates } from '/Volumes/L/Misha/server/utils/ai';
 export { saveSearchResult, fetchHistory, fetchHistoryEntry } from '/Volumes/L/Misha/server/utils/db';
-export { closeSharedBrowser, googleSearchHtmlPages, fetchHtmlPage, navigatePageByHints, closePageSafe, stripHtmlAssets, extractAnchorCandidates, heuristicExtractContacts } from '/Volumes/L/Misha/server/utils/scrape';
+export { closeSharedBrowser, googleSearchHtmlPages, fetchHtmlPage, navigatePageByHints, closePageSafe, stripHtmlAssets, extractAnchorCandidates, heuristicExtractContacts, sendTelegramViaWeb, sendWhatsAppViaWeb, sendVkViaWeb } from '/Volumes/L/Misha/server/utils/scrape';
+export { getSettings, saveSettings } from '/Volumes/L/Misha/server/utils/settings';
 export { listTemplates, upsertTemplate, deleteTemplate, setTemplateFile, getUploadsDir } from '/Volumes/L/Misha/server/utils/templates';

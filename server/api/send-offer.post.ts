@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer'
 import { listTemplates } from '@/server/utils/templates'
 import { join } from 'node:path'
+import { getSettings } from '@/server/utils/settings'
 
 type Body = {
     emails: string[]
@@ -15,13 +16,15 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 400, statusMessage: 'emails required' })
     }
 
+    // Prefer saved settings, fallback to runtimeConfig
+    const saved = getSettings()
     const cfg = useRuntimeConfig()
-    const host = cfg.SMTP_HOST as string
-    const port = Number(cfg.SMTP_PORT || 587)
-    const user = cfg.SMTP_USER as string
-    const pass = cfg.SMTP_PASS as string
-    const secure = String(cfg.SMTP_SECURE || 'false').toLowerCase() === 'true'
-    const from = (cfg.SMTP_FROM as string) || user
+    const host = (saved.smtp?.host as string) || (cfg.SMTP_HOST as string)
+    const port = Number(saved.smtp?.port ?? cfg.SMTP_PORT ?? 587)
+    const user = (saved.smtp?.user as string) || (cfg.SMTP_USER as string)
+    const pass = (saved.smtp?.pass as string) || (cfg.SMTP_PASS as string)
+    const secure = Boolean(saved.smtp?.secure ?? (String(cfg.SMTP_SECURE || 'false').toLowerCase() === 'true'))
+    const from = (saved.smtp?.from as string) || (cfg.SMTP_FROM as string) || user
 
     if (!host || !user || !pass) {
         throw createError({ statusCode: 400, statusMessage: 'SMTP config missing (SMTP_HOST, SMTP_USER, SMTP_PASS)' })

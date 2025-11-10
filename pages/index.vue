@@ -6,6 +6,8 @@
                 <n-space vertical :size="8">
                     <n-button size="small" type="primary" quaternary disabled>Поиск</n-button>
                     <n-button size="small" tertiary @click="navigateToTemplates">Шаблоны КП</n-button>
+                    <n-button size="small" tertiary @click="navigateTo('/settings')">Настройки</n-button>
+                    <n-button size="small" tertiary @click="seedHistory">Загрузить тестовые данные</n-button>
                 </n-space>
             </div>
         </n-layout-sider>
@@ -92,8 +94,8 @@
                                         <n-divider />
                                         <div class="card-actions">
                                             <n-space :size="8" wrap>
-                                                <n-button tertiary type="primary" @click="openSendOffer(r)">Отправить
-                                                    КП</n-button>
+                                                <n-button tertiary type="primary" @click="openSendOffer(r)">Отправить КП</n-button>
+                                                <n-button tertiary @click="openWhatsAppSend(r)">WhatsApp</n-button>
                                             </n-space>
                                         </div>
 
@@ -168,6 +170,22 @@
         </template>
     </n-modal>
 
+    <n-modal v-model:show="socialSendVisible" preset="card" title="Отправка в WhatsApp" class="modal-wide">
+        <n-form label-placement="top">
+            <n-form-item label="Кому">
+                <n-input v-model:value="socialForm.to" placeholder="@username / vk.com/name / +79991234567" />
+            </n-form-item>
+            <n-form-item label="Текст сообщения">
+                <n-input v-model:value="socialForm.text" type="textarea" :rows="6" placeholder="Текст сообщения" />
+            </n-form-item>
+        </n-form>
+        <template #footer>
+            <n-space justify="end">
+                <n-button quaternary @click="socialSendVisible = false">Отмена</n-button>
+                <n-button type="primary" :loading="sendingSocial" @click="sendSocial">Отправить</n-button>
+            </n-space>
+        </template>
+    </n-modal>
     <n-modal v-model:show="templatesVisible" preset="card" title="Шаблоны КП" class="modal-wide">
         <n-space vertical :size="16">
             <n-tabs type="line" animated>
@@ -288,6 +306,13 @@ const navigateToTemplates = () => {
     navigateTo('/templates')
 }
 
+const socialSendVisible = ref(false)
+const sendingSocial = ref(false)
+const socialForm = reactive({
+    to: '',
+    text: '',
+})
+
 const loadAllTemplates = async () => {
     const data = await $fetch('/api/templates')
     templateList.value = (data as any).templates || []
@@ -332,6 +357,33 @@ const sendOffer = async () => {
         sendOfferVisible.value = false
     } finally {
         sending.value = false
+    }
+}
+
+const guessWhatsappTo = (item: SearchResultItem): string => {
+    const wa = (item.contacts.socials || []).find(s => (s.platform || '').toLowerCase() === 'whatsapp')
+    if (wa?.url) return wa.url
+    const firstPhone = (item.contacts.phones || [])[0]
+    if (firstPhone) return firstPhone
+    return ''
+}
+
+const openWhatsAppSend = (item: SearchResultItem) => {
+    socialForm.text = `Здравствуйте! Пишу по поводу сотрудничества. Сайт: ${item.page}`
+    socialForm.to = guessWhatsappTo(item)
+    socialSendVisible.value = true
+}
+
+const sendSocial = async () => {
+    if (!socialForm.to || !socialForm.text) {
+        return
+    }
+    sendingSocial.value = true
+    try {
+        await $fetch('/api/send-whatsapp', { method: 'POST', body: { to: socialForm.to, text: socialForm.text } })
+        socialSendVisible.value = false
+    } finally {
+        sendingSocial.value = false
     }
 }
 const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
@@ -421,6 +473,18 @@ const run = async () => {
     }
 
     loading.value = false
+}
+
+const seedHistory = async () => {
+    try {
+        const res = await $fetch('/api/history/seed', { method: 'POST' }) as { id?: number }
+        await loadHistory()
+        if (res?.id) {
+            await handleHistorySelect(res.id)
+        }
+    } catch (err) {
+        console.error('seed failed', err)
+    }
 }
 
 onMounted(async () => {

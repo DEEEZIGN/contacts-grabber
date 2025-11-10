@@ -6,6 +6,7 @@
                 <n-space vertical :size="8">
                     <n-button size="small" tertiary @click="navigateTo('/')">Поиск</n-button>
                     <n-button size="small" type="primary" quaternary disabled>Шаблоны КП</n-button>
+                    <n-button size="small" tertiary @click="navigateTo('/settings')">Настройки</n-button>
                 </n-space>
             </div>
         </n-layout-sider>
