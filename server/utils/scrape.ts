@@ -425,7 +425,7 @@ export async function sendTelegramViaWeb(to: string, text: string, config: Brows
             if (/t\.me|telegram\.me/i.test(u.hostname)) {
                 return u.pathname.replace(/^\//, '')
             }
-        } catch {}
+        } catch { }
         return raw
     })()
 
@@ -511,7 +511,7 @@ export async function sendWhatsAppViaWeb(to: string, text: string, config: Brows
                 cont.click(),
             ])
         }
-    } catch {}
+    } catch { }
     // On web.whatsapp.com, wait for editor and send (text already passed may be prefilled)
     try {
         const editor = await page.waitForSelector('[contenteditable="true"]', { timeout: 20000 })
@@ -549,7 +549,7 @@ export async function sendVkViaWeb(to: string, text: string, config: BrowserLaun
                     msgBtn.click(),
                 ])
             }
-        } catch {}
+        } catch { }
     }
     // Type and send
     try {
