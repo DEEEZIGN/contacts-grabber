@@ -3,11 +3,7 @@
         <n-layout-sider class="sidebar" :native-scrollbar="false">
             <div class="sidebar-header">Навигация</div>
             <div class="sidebar-actions">
-                <n-space vertical :size="8">
-                    <n-button size="small" tertiary @click="navigateTo('/')">Поиск</n-button>
-                    <n-button size="small" tertiary @click="navigateTo('/templates')">Шаблоны КП</n-button>
-                    <n-button size="small" type="primary" quaternary disabled>Настройки</n-button>
-                </n-space>
+                <n-menu :value="menuValue" :options="menuOptions" @update:value="onMenuSelect" />
             </div>
         </n-layout-sider>
         <n-layout-content>
@@ -101,6 +97,21 @@ const smtp = reactive({
     pass: '',
     from: '',
 })
+
+const route = useRoute()
+const menuOptions = [
+    { label: 'Поиск', key: '/' },
+    { label: 'Шаблоны КП', key: '/templates' },
+    { label: 'Настройки', key: '/settings' },
+]
+const menuValue = computed(() => {
+    if (route.path.startsWith('/templates')) return '/templates'
+    if (route.path.startsWith('/settings')) return '/settings'
+    return '/'
+})
+const onMenuSelect = (key: string) => {
+    navigateTo(key)
+}
 
 const whatsapp = reactive({
     accessToken: '',

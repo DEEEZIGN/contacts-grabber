@@ -3,12 +3,10 @@
         <n-layout-sider class="sidebar" :native-scrollbar="false">
             <div class="sidebar-header">Меню</div>
             <div class="sidebar-actions">
-                <n-space vertical :size="8">
-                    <n-button size="small" type="primary" quaternary disabled>Поиск</n-button>
-                    <n-button size="small" tertiary @click="navigateToTemplates">Шаблоны КП</n-button>
-                    <n-button size="small" tertiary @click="navigateTo('/settings')">Настройки</n-button>
-                    <n-button size="small" tertiary @click="seedHistory">Загрузить тестовые данные</n-button>
-                </n-space>
+                <n-menu :value="menuValue" :options="menuOptions" @update:value="onMenuSelect" />
+                <div style="padding: 8px 12px;">
+                    <n-button size="small" tertiary @click="seedHistory" block>Загрузить тестовые данные</n-button>
+                </div>
             </div>
         </n-layout-sider>
         <n-layout has-sider class="content-with-history">
@@ -302,8 +300,19 @@ const sendForm = reactive({
     body: '',
 })
 
-const navigateToTemplates = () => {
-    navigateTo('/templates')
+const route = useRoute()
+const menuOptions = [
+    { label: 'Поиск', key: '/' },
+    { label: 'Шаблоны КП', key: '/templates' },
+    { label: 'Настройки', key: '/settings' },
+]
+const menuValue = computed(() => {
+    if (route.path.startsWith('/templates')) return '/templates'
+    if (route.path.startsWith('/settings')) return '/settings'
+    return '/'
+})
+const onMenuSelect = (key: string) => {
+    navigateTo(key)
 }
 
 const socialSendVisible = ref(false)
